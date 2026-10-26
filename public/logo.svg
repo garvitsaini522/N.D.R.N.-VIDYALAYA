@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgNavy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4A3525"/>
+      <stop offset="60%" stop-color="#382619"/>
+      <stop offset="100%" stop-color="#261910"/>
+    </linearGradient>
+
+    <linearGradient id="goldRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fcd34d"/>
+      <stop offset="30%" stop-color="#D4A017"/>
+      <stop offset="70%" stop-color="#E98B2A"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+
+    <linearGradient id="shieldFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4A3525"/>
+      <stop offset="100%" stop-color="#261910"/>
+    </linearGradient>
+
+    <linearGradient id="flameGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#E98B2A"/>
+      <stop offset="40%" stop-color="#D4A017"/>
+      <stop offset="100%" stop-color="#FFF8E7"/>
+    </linearGradient>
+
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <!-- Circular text paths -->
+    <path id="textCircleTop" d="M 90,250 A 160,160 0 1,1 410,250" fill="none" />
+    <path id="textCircleBottom" d="M 410,250 A 160,160 0 0,1 90,250" fill="none" />
+  </defs>
+
+  <!-- Outer Decorative Ring -->
+  <circle cx="250" cy="250" r="236" fill="url(#bgNavy)" stroke="url(#goldRing)" stroke-width="8" />
+  <circle cx="250" cy="250" r="222" fill="none" stroke="#D4A017" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
+
+  <!-- Inner Band for School Inscription -->
+  <circle cx="250" cy="250" r="186" fill="none" stroke="url(#goldRing)" stroke-width="4"/>
+
+  <!-- Inscription Text along Circle -->
+  <text font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="21" font-weight="800" fill="#fcd34d" letter-spacing="4.5">
+    <textPath href="#textCircleTop" startOffset="50%" text-anchor="middle">
+      ★ N.D.R.N. VIDYALAYA ★
+    </textPath>
+  </text>
+
+  <text font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="14" font-weight="700" fill="#FFF8E7" letter-spacing="3.5">
+    <textPath href="#textCircleBottom" startOffset="50%" text-anchor="middle">
+      DAULATYARPUR • MADHOGANJ • NURSERY-CLASS 5
+    </textPath>
+  </text>
+
+  <!-- Central Crest Medallion -->
+  <circle cx="250" cy="250" r="148" fill="#382619" stroke="#E98B2A" stroke-width="2.5" />
+
+  <!-- Radiance Rays behind Shield -->
+  <g opacity="0.25" stroke="#fef08a" stroke-width="1.5">
+    <line x1="250" y1="250" x2="250" y2="120" />
+    <line x1="250" y1="250" x2="340" y2="155" />
+    <line x1="250" y1="250" x2="380" y2="250" />
+    <line x1="250" y1="250" x2="340" y2="345" />
+    <line x1="250" y1="250" x2="250" y2="380" />
+    <line x1="250" y1="250" x2="160" y2="345" />
+    <line x1="250" y1="250" x2="120" y2="250" />
+    <line x1="250" y1="250" x2="160" y2="155" />
+  </g>
+
+  <!-- Heraldic Shield -->
+  <path d="M 250,140 
+           C 290,140 318,144 324,152
+           C 324,212 308,284 250,332
+           C 192,284 176,212 176,152
+           C 182,144 210,140 250,140 Z" 
+        fill="url(#shieldFill)" 
+        stroke="url(#goldRing)" 
+        stroke-width="5" />
+
+  <!-- Shield Inner Border -->
+  <path d="M 250,152 
+           C 284,152 306,155 311,161
+           C 311,210 298,270 250,314
+           C 202,270 189,210 189,161
+           C 194,155 216,152 250,152 Z" 
+        fill="none" 
+        stroke="#fcd34d" 
+        stroke-width="1.5" 
+        opacity="0.7"/>
+
+  <!-- Rising Sun of Enlightenment -->
+  <g transform="translate(250, 206)">
+    <circle cx="0" cy="0" r="24" fill="#fbbf24" opacity="0.9" filter="url(#subtleGlow)"/>
+    <!-- Sun Rays -->
+    <path d="M -28,-14 L -38,-20 M -20,-28 L -26,-38 M 0,-32 L 0,-44 M 20,-28 L 26,-38 M 28,-14 L 38,-20" stroke="#fef08a" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Open Book of Knowledge -->
+  <g transform="translate(250, 245)">
+    <!-- Pages Left -->
+    <path d="M 0,16 C -20,6 -44,8 -62,18 L -62,-10 C -44,-18 -20,-18 0,-10 Z" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+    <path d="M -4,-8 C -22,-16 -42,-16 -58,-8" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+    <path d="M -4,-2 C -22,-10 -42,-10 -58,-2" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+    <path d="M -4,4 C -22,-4 -42,-4 -58,4" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+
+    <!-- Pages Right -->
+    <path d="M 0,16 C 20,6 44,8 62,18 L 62,-10 C 44,-18 20,-18 0,-10 Z" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+    <path d="M 4,-8 C 22,-16 42,-16 58,-8" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+    <path d="M 4,-2 C 22,-10 42,-10 58,-2" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+    <path d="M 4,4 C 22,-4 42,-4 58,4" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+
+    <!-- Book Spine -->
+    <path d="M 0,-10 L 0,18" stroke="#d97706" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Eternal Flame / Torch of Wisdom -->
+  <g transform="translate(250, 182)">
+    <path d="M 0,16 C -6,14 -10,8 -6,0 C -4,4 0,0 2,-8 C 8,0 12,6 8,12 C 4,18 2,16 0,16 Z" fill="url(#flameGrad)" filter="url(#subtleGlow)"/>
+  </g>
+
+  <!-- Lower Motto Ribbon Banner -->
+  <g transform="translate(250, 360)">
+    <path d="M -130,-4 L -110,-18 L -90,-4 L 90,-4 L 110,-18 L 130,-4 L 115,16 L 90,12 L -90,12 L -115,16 Z" fill="#b45309" stroke="#fcd34d" stroke-width="1.5"/>
+    <rect x="-95" y="-12" width="190" height="26" rx="4" fill="url(#goldRing)" stroke="#78350f" stroke-width="1.5"/>
+    <text x="0" y="5" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="11.5" font-weight="800" fill="#09182d" text-anchor="middle" letter-spacing="1.5">
+      CHARACTER • KNOWLEDGE • CARE
+    </text>
+  </g>
+</svg>

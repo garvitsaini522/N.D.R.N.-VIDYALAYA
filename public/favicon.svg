@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
+  <defs>
+    <linearGradient id="favNavy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4A3525"/>
+      <stop offset="100%" stop-color="#261910"/>
+    </linearGradient>
+    <linearGradient id="favGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fcd34d"/>
+      <stop offset="100%" stop-color="#D4A017"/>
+    </linearGradient>
+  </defs>
+  <!-- Base circle badge -->
+  <circle cx="32" cy="32" r="30" fill="url(#favNavy)" stroke="url(#favGold)" stroke-width="2.5"/>
+  <!-- Central Shield -->
+  <path d="M32 14 C38 14 43 15 44 17 C44 28 41 38 32 46 C23 38 20 28 20 17 C21 15 26 14 32 14 Z" fill="#382619" stroke="#E98B2A" stroke-width="1.8"/>
+  <!-- Open Book -->
+  <path d="M32 36 C28 33 24 33 22 35 L22 26 C24 24 28 24 32 26 C36 24 40 24 42 26 L42 35 C40 33 36 33 32 36 Z" fill="#ffffff"/>
+  <path d="M32 26 L32 36" stroke="#4A3525" stroke-width="1.2"/>
+  <!-- Golden Flame -->
+  <path d="M32 18 C30 20 30 23 32 24 C34 23 34 20 32 18 Z" fill="#E98B2A"/>
+  <!-- Top Gold Star -->
+  <circle cx="32" cy="8.5" r="2.2" fill="#D4A017"/>
+</svg>

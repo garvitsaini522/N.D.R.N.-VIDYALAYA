@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /parent/
+Disallow: /student/
+Disallow: /teacher/
+Disallow: /api/
+
+Sitemap: https://ndrnvidyalaya.edu.in/sitemap.xml

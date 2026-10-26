@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-white: #FFFFFF;
+  --color-cream: #FFF8E7;
+  --color-saffron: #E98B2A;
+  --color-gold: #D4A017;
+  --color-brown: #4A3525;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    background-color: #FFFFFF;
+    color: #4A3525;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Accessible focus outline in Saffron */
+  :focus-visible {
+    outline: 2px solid #E98B2A;
+    outline-offset: 2px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #4A3525;
+  }
+}
+
+/* Custom subtle warm scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FFF8E7;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #EBDDCB;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D4A017;
+}
+
+/* Shimmer animation utility for skeletons */
+.skeleton-shimmer {
+  background: linear-gradient(90deg,
+      rgba(235, 221, 203, 0.4) 0%,
+      rgba(255, 248, 231, 0.9) 50%,
+      rgba(235, 221, 203, 0.4) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
