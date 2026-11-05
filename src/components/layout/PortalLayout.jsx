@@ -6,22 +6,22 @@ import {
   CalendarCheck2,
   GraduationCap,
   CreditCard,
-  BookOpenCheck,
   CalendarDays,
   Bell,
   LogOut,
   ExternalLink,
   Menu,
   X,
-  FileDown,
-  Calendar,
   Users,
   ChevronDown,
   Check,
   ChevronRight,
   ShieldCheck,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  School,
+  BookOpenCheck,
+  FileCheck2
 } from 'lucide-react';
 import { useAuth, getDashboardRoute } from '../../context/AuthContext';
 import { usePortal } from '../../context/PortalContext';
@@ -45,34 +45,56 @@ export default function PortalLayout() {
   const [wardDropdownOpen, setWardDropdownOpen] = useState(false);
 
   const dashboardPath = user ? getDashboardRoute(user.role) : '/portal';
+  const isTeacher = user?.role === 'teacher';
 
-  const portalLinks = [
-    { to: dashboardPath, label: 'Dashboard Overview', icon: LayoutDashboard, end: true },
-    { to: '/portal/profile', label: isParent ? 'Child Profile' : 'Student Profile', icon: User },
-    { to: '/portal/attendance', label: 'Attendance & Leave', icon: CalendarCheck2 },
-    { to: '/portal/homework', label: 'Homework & Tasks', icon: BookOpenCheck },
-    { to: '/portal/timetable', label: 'Class Timetable', icon: CalendarDays },
-    { to: '/portal/results', label: 'Results & Report Card', icon: GraduationCap },
-    { to: '/portal/fees', label: 'Fee Desk & Receipts', icon: CreditCard },
-    { to: '/portal/notices', label: 'Notices & Circulars', icon: Bell },
-    { to: '/portal/events', label: 'School Events', icon: Calendar },
-    { to: '/portal/downloads', label: 'Downloads & Syllabi', icon: FileDown },
-  ];
+  const portalLinks = isTeacher
+    ? [
+        { to: '/teacher/dashboard', label: 'Dashboard Overview', icon: LayoutDashboard, end: true },
+        { to: '/teacher/attendance', label: 'Attendance Register', icon: CalendarCheck2 },
+        { to: '/teacher/students', label: 'Student Records', icon: Users },
+        { to: '/teacher/classes', label: 'Class Cohorts', icon: School },
+        { to: '/teacher/timetable', label: 'Teaching Timetable', icon: CalendarDays },
+        { to: '/teacher/profile', label: 'Faculty Profile', icon: User },
+      ]
+    : isParent
+    ? [
+        { to: dashboardPath, label: 'Dashboard Overview', icon: LayoutDashboard, end: true },
+        { to: '/portal/profile', label: 'Child Profile', icon: User },
+        { to: '/portal/results', label: 'Results & Report Card', icon: GraduationCap },
+        { to: '/portal/fees', label: 'Fee Desk & Receipts', icon: CreditCard },
+      ]
+    : [
+        { to: dashboardPath, label: 'Dashboard Overview', icon: LayoutDashboard, end: true },
+        { to: '/portal/profile', label: 'Student Profile', icon: User },
+        { to: '/portal/attendance', label: 'Attendance & Leave', icon: CalendarCheck2 },
+        { to: '/portal/timetable', label: 'Class Timetable', icon: CalendarDays },
+        { to: '/portal/results', label: 'Results & Report Card', icon: GraduationCap },
+        { to: '/portal/fees', label: 'Fee Desk & Receipts', icon: CreditCard },
+      ];
 
-  // Mobile Bottom Navigation links (top 4 frequent actions + More)
-  const mobileBottomLinks = [
-    { to: dashboardPath, label: 'Home', icon: LayoutDashboard, end: true },
-    { to: '/portal/attendance', label: 'Attendance', icon: CalendarCheck2 },
-    { to: '/portal/homework', label: 'Homework', icon: BookOpenCheck },
-    { to: '/portal/results', label: 'Results', icon: GraduationCap },
-  ];
+  // Mobile Bottom Navigation links (frequent actions + More)
+  const mobileBottomLinks = isTeacher
+    ? [
+        { to: '/teacher/dashboard', label: 'Home', icon: LayoutDashboard, end: true },
+        { to: '/teacher/attendance', label: 'Attendance', icon: CalendarCheck2 },
+        { to: '/teacher/students', label: 'Students', icon: Users },
+        { to: '/teacher/timetable', label: 'Timetable', icon: CalendarDays },
+        { to: '/teacher/profile', label: 'Profile', icon: User },
+      ]
+    : isParent
+    ? [
+        { to: dashboardPath, label: 'Home', icon: LayoutDashboard, end: true },
+        { to: '/portal/profile', label: 'Profile', icon: User },
+        { to: '/portal/results', label: 'Results', icon: GraduationCap },
+        { to: '/portal/fees', label: 'Fees', icon: CreditCard },
+      ]
+    : [
+        { to: dashboardPath, label: 'Home', icon: LayoutDashboard, end: true },
+        { to: '/portal/attendance', label: 'Attendance', icon: CalendarCheck2 },
+        { to: '/portal/results', label: 'Results', icon: GraduationCap },
+      ];
 
-  const notifications = [
-    { id: 1, title: 'Term II EVS Activity Submission Due Friday', time: '10m ago', unread: true },
-    { id: 2, title: 'Term II Evaluation Timetable Released (Classes 1-5)', time: '2h ago', unread: true },
-    { id: 3, title: 'Quarter 2 Tuition Fee Receipt Verified', time: '1d ago', unread: false },
-    { id: 4, title: 'Bal Mela Annual Fete Scheduled for 14 Nov', time: '2d ago', unread: false },
-  ];
+  const notifications = [];
 
   const handleLogout = () => {
     logout();
@@ -82,7 +104,7 @@ export default function PortalLayout() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
       {/* Mobile Top Header */}
-      <header className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+      <header className="lg:hidden print:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
         <SchoolLogo size="sm" to="/portal" />
 
         <div className="flex items-center gap-2">
@@ -143,7 +165,7 @@ export default function PortalLayout() {
 
       {/* Sidebar Navigation (Desktop & Mobile Drawer) */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen z-40 w-72 bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed lg:sticky top-0 left-0 h-screen z-40 w-72 bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 print:hidden ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -179,12 +201,22 @@ export default function PortalLayout() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-school-100 text-school-800 uppercase tracking-wider">
-                    {isParent ? 'Parent Portal' : 'Student Portal'}
+                  <span
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      isTeacher
+                        ? 'bg-purple-100 text-purple-800'
+                        : isParent
+                        ? 'bg-school-100 text-school-800'
+                        : 'bg-school-100 text-school-800'
+                    }`}
+                  >
+                    {isTeacher ? 'Faculty Portal' : isParent ? 'Parent Portal' : (currentStudent?.grade || 'Class 5')}
                   </span>
-                  <span className="text-[11px] text-slate-500 truncate">
-                    {currentStudent?.grade || 'Class 5-A'}
-                  </span>
+                  {(isTeacher || isParent) && (
+                    <span className="text-[11px] text-slate-500 truncate">
+                      {isTeacher ? (user?.designation || 'Primary Educator') : (currentStudent?.grade || 'Class 5-A')}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -282,7 +314,7 @@ export default function PortalLayout() {
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-8">
         {/* Temporary Demo Evaluation Mode Banner */}
         {user?.isDemo && (
-          <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-school-800 text-white px-4 py-2 text-xs shadow-soft-sm flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-amber-700/30">
+          <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-school-800 text-white px-4 py-2 text-xs shadow-soft-sm flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-amber-700/30 print:hidden">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2 py-0.5 rounded-full bg-white/20 font-black uppercase text-[10px] tracking-wider shrink-0">
                 Demo Evaluation Mode
@@ -304,7 +336,7 @@ export default function PortalLayout() {
         )}
 
         {/* Top Navbar for Large Screens */}
-        <header className="hidden lg:flex items-center justify-between px-8 py-3.5 bg-white border-b border-slate-200/80 sticky top-0 z-20 shadow-2xs">
+        <header className="hidden lg:flex print:hidden items-center justify-between px-8 py-3.5 bg-white border-b border-slate-200/80 sticky top-0 z-20 shadow-2xs">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-extrabold text-slate-900">
@@ -313,15 +345,13 @@ export default function PortalLayout() {
                     Parent Portal: <span className="text-school-700">{user?.name}</span>
                   </>
                 ) : (
-                  <>
-                    Student Portal: <span className="text-school-700">{user?.name}</span>
-                  </>
+                  <span className="text-school-700">{user?.name}</span>
                 )}
               </h1>
 
               {currentStudent && (
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-school-100 text-school-900 border border-school-200">
-                  {currentStudent.grade} • Roll #{currentStudent.rollNo}
+                  {isParent ? `${currentStudent.grade} • Roll #${currentStudent.rollNo}` : (currentStudent.grade || 'Class 5')}
                 </span>
               )}
             </div>
@@ -382,28 +412,29 @@ export default function PortalLayout() {
                 aria-label="View notifications"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+                {notifications.some((n) => n.unread) && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+                )}
               </button>
 
               {notificationsOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-3 z-50 animate-in fade-in">
                   <div className="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900">Notifications & Circulars</span>
-                    <Link
-                      to="/portal/notices"
-                      onClick={() => setNotificationsOpen(false)}
-                      className="text-[10px] font-semibold text-school-600 hover:underline"
-                    >
-                      View All
-                    </Link>
+                    <span className="text-xs font-bold text-slate-900">Recent Notifications</span>
                   </div>
                   <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                    {notifications.map((n) => (
-                      <div key={n.id} className="p-3 text-xs hover:bg-slate-50 transition-colors">
-                        <div className="font-semibold text-slate-800">{n.title}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{n.time}</div>
+                    {notifications.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-slate-400">
+                        No new notifications
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((n) => (
+                        <div key={n.id} className="p-3 text-xs hover:bg-slate-50 transition-colors">
+                          <div className="font-semibold text-slate-800">{n.title}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{n.time}</div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -437,7 +468,7 @@ export default function PortalLayout() {
       </div>
 
       {/* Mobile Bottom Navigation Bar (Thumb-Friendly on Phones) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 z-30 shadow-lg flex items-center justify-around">
+      <nav className="lg:hidden print:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 z-30 shadow-lg flex items-center justify-around">
         {mobileBottomLinks.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.to;

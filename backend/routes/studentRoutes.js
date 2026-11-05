@@ -20,7 +20,7 @@ router.get('/:id', authenticate, enforceStudentOrParentDataIsolation, requireDat
 // POST /api/students (Admin only)
 router.post('/', authenticate, authorize('admin'), requireDatabase, createStudent);
 
-// PUT /api/students/:id (Admin only)
-router.put('/:id', authenticate, authorize('admin'), requireDatabase, updateStudent);
+// PUT /api/students/:id (Admin and Parent with role-based field sanitization)
+router.put('/:id', authenticate, authorize('admin', 'parent'), requireDatabase, updateStudent);
 
 export default router;

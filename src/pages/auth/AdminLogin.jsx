@@ -5,30 +5,22 @@ import {
   Key,
   ArrowLeft,
   ArrowRight,
-  AlertCircle,
-  Sparkles,
-  Zap,
-  Info,
-  Check,
-  KeyRound
+  AlertCircle
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
-import { DEMO_ACCOUNTS } from '../../config/demoAccounts';
 
 export default function AdminLogin() {
   const [empId, setEmpId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [filledFeedback, setFilledFeedback] = useState(false);
 
-  const { user, isAuthenticated, login, loginAsDemoRole, logout, error: authError, clearError } = useAuth();
+  const { user, isAuthenticated, login, logout, error: authError, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const redirectPath = location.state?.from?.pathname || '/admin/dashboard';
-  const adminDemo = DEMO_ACCOUNTS.admin;
 
   // If already authenticated as administrator, navigate directly to dashboard
   useEffect(() => {
@@ -36,31 +28,6 @@ export default function AdminLogin() {
       navigate('/admin/dashboard', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
-
-  const handleAutoFillDemo = () => {
-    if (adminDemo) {
-      setEmpId(adminDemo.email);
-      setPassword(adminDemo.password);
-      setErrorMsg(null);
-      clearError();
-      setFilledFeedback(true);
-      setTimeout(() => setFilledFeedback(false), 2500);
-    }
-  };
-
-  const handleQuickDemoEnter = async () => {
-    setErrorMsg(null);
-    clearError();
-    setIsLoading(true);
-    const result = loginAsDemoRole('admin');
-    setIsLoading(false);
-
-    if (result.success) {
-      navigate(redirectPath, { replace: true });
-    } else {
-      setErrorMsg(result.error || 'Failed to initialize administrator demo session');
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -126,74 +93,7 @@ export default function AdminLogin() {
           </p>
         </div>
 
-        {/* Demo Administrator Credentials Card */}
-        {adminDemo && (
-          <div className="mb-5 p-4 rounded-2xl bg-slate-900/90 border border-gold-500/40 shadow-inner">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs font-black text-gold-400 uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-gold-400" />
-                <span>Admin Demo Access</span>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold-400/20 text-gold-300 border border-gold-400/30">
-                Evaluation Mode
-              </span>
-            </div>
 
-            <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-700 text-xs space-y-1 mb-3">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Account:</span>
-                <span className="font-bold text-white">{adminDemo.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Email ID:</span>
-                <code className="font-mono font-bold text-gold-300 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
-                  {adminDemo.email}
-                </code>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Password:</span>
-                <code className="font-mono font-bold text-emerald-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
-                  {adminDemo.password}
-                </code>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleAutoFillDemo}
-                className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {filledFeedback ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Credentials Filled!</span>
-                  </>
-                ) : (
-                  <>
-                    <KeyRound className="w-3.5 h-3.5 text-gold-400" />
-                    <span>Auto-Fill</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleQuickDemoEnter}
-                disabled={isLoading}
-                className="flex-1 py-2 px-3 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 text-xs font-extrabold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>1-Click Enter</span>
-              </button>
-            </div>
-
-            <p className="text-[10px] text-slate-400 mt-2 leading-relaxed flex items-center gap-1">
-              <Info className="w-3 h-3 text-gold-400 shrink-0" />
-              <span>Offline temporary demo access. MongoDB server is not required.</span>
-            </p>
-          </div>
-        )}
 
         {/* Error Alert Banner */}
         {(errorMsg || authError) && (

@@ -46,6 +46,36 @@ export const portalApi = {
   },
 
   /**
+   * Update Student Profile (Personal particulars permitted for parent/admin)
+   */
+  async updateStudent(studentId, updateData) {
+    let apiSuccess = false;
+    let apiData = null;
+
+    try {
+      const res = await this.request(`/students/${studentId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updateData),
+      });
+      if (res && res.data) {
+        apiSuccess = true;
+        apiData = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend update failed or offline, syncing locally:', err.message);
+    }
+
+    // Always synchronize with local DataService for offline resilience and immediate UI reactivity
+    const updatedLocal = DataService.updateStudent(studentId, updateData);
+
+    return {
+      success: true,
+      data: apiData || updatedLocal || updateData,
+      isOfflineFallback: !apiSuccess,
+    };
+  },
+
+  /**
    * 2. Get Student Attendance Records & Summary
    */
   async getAttendance(studentId) {
@@ -237,5 +267,107 @@ export const portalApi = {
       { id: 'DL-03', title: 'Winter School Uniform Guidelines & Schedule Notice', fileSize: '420 KB', format: 'PDF' },
       { id: 'DL-04', title: 'Leave Application Proforma for Parents', fileSize: '310 KB', format: 'PDF' },
     ];
+  },
+
+  /**
+   * 13. Teacher Operations & API Calls
+   */
+  async getTeacher(teacherId = 'me') {
+    try {
+      const res = await this.request(`/teachers/${teacherId}`);
+      if (res && res.data) return { data: res.data, isOfflineFallback: false };
+    } catch {
+      // Fallback
+    }
+    const local = DataService.getTeacherById(teacherId) || DataService.getTeachers()[0] || null;
+    return { data: local, isOfflineFallback: true };
+  },
+
+  async updateTeacher(teacherId, updateData) {
+    let apiSuccess = false;
+    let apiData = null;
+    try {
+      const res = await this.request(`/teachers/${teacherId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updateData),
+      });
+      if (res && res.data) {
+        apiSuccess = true;
+        apiData = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend update teacher failed, syncing locally:', err.message);
+    }
+    const updatedLocal = DataService.updateTeacher(teacherId, updateData);
+    return {
+      success: true,
+      data: apiData || updatedLocal || updateData,
+      isOfflineFallback: !apiSuccess,
+    };
+  },
+
+  async recordClassAttendance(attendancePayload) {
+    let apiSuccess = false;
+    let apiData = null;
+    try {
+      const res = await this.request('/attendance', {
+        method: 'POST',
+        body: JSON.stringify(attendancePayload),
+      });
+      if (res && res.data) {
+        apiSuccess = true;
+        apiData = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend mark attendance failed, syncing locally:', err.message);
+    }
+    const localRec = DataService.markClassAttendance(attendancePayload);
+    return {
+      success: true,
+      data: apiData || localRec,
+      isOfflineFallback: !apiSuccess,
+    };
+  },
+
+  async createHomework(homeworkData) {
+    let apiSuccess = false;
+    let apiData = null;
+    try {
+      const res = await this.request('/homework', {
+        method: 'POST',
+        body: JSON.stringify(homeworkData),
+      });
+      if (res && res.data) {
+        apiSuccess = true;
+        apiData = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend create homework failed, syncing locally:', err.message);
+    }
+    const local = DataService.addHomeworkTask(homeworkData);
+    return {
+      success: true,
+      data: apiData || local,
+      isOfflineFallback: !apiSuccess,
+    };
+  },
+
+  async deleteHomework(taskId) {
+    const updated = DataService.deleteHomeworkTask(taskId);
+    return { success: true, data: updated };
+  },
+
+  async getTeacherLeaves() {
+    return { data: DataService.getTeacherLeaves() };
+  },
+
+  async applyTeacherLeave(leaveData) {
+    const saved = DataService.applyTeacherLeave(leaveData);
+    return { data: saved, success: true };
+  },
+
+  async updateLeaveStatus(leaveId, status, reviewerName) {
+    const updated = DataService.updateLeaveStatus(leaveId, status, reviewerName);
+    return { data: updated, success: true };
   },
 };

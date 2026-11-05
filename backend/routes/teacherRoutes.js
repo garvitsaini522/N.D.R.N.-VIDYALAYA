@@ -15,13 +15,24 @@ const router = Router();
 router.get('/', requireDatabase, getTeachers);
 
 // GET /api/teachers/:id
-router.get('/:id', requireDatabase, getTeacherById);
+router.get(
+  '/:id',
+  (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return authenticate(req, res, next);
+    }
+    next();
+  },
+  requireDatabase,
+  getTeacherById
+);
 
 // Admin routes
 // POST /api/teachers
 router.post('/', authenticate, authorize('admin'), requireDatabase, createTeacher);
 
-// PUT /api/teachers/:id
-router.put('/:id', authenticate, authorize('admin'), requireDatabase, updateTeacher);
+// PUT /api/teachers/:id (Admin and Teacher)
+router.put('/:id', authenticate, authorize('admin', 'teacher'), requireDatabase, updateTeacher);
 
 export default router;

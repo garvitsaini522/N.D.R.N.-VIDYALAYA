@@ -22,14 +22,24 @@ export class NoticeService {
 
     const skip = (page - 1) * limit;
 
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       Notice.find(query)
         .sort({ isPinned: -1, publishedDate: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('publishedBy', 'name role'),
+        .populate('publishedBy', 'name role')
+        .lean(),
       Notice.countDocuments(query),
     ]);
+
+    const items = rawItems.map((doc) => ({
+      ...doc,
+      id: doc._id?.toString(),
+      pinned: Boolean(doc.isPinned),
+      date: doc.publishedDate
+        ? new Date(doc.publishedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '',
+    }));
 
     return { items, total, page, limit };
   }

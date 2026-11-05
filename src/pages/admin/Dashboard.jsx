@@ -23,7 +23,6 @@ import {
 import { DataService } from '../../services/dataService';
 import { useSchoolSettings } from '../../context/SchoolSettingsContext';
 import { Card } from '../../components/common/Card';
-import Button from '../../components/common/Button';
 
 export default function AdminDashboard() {
   const { settings } = useSchoolSettings();
@@ -72,59 +71,55 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Executive Welcome Bar */}
-      <div className="bg-gradient-to-r from-school-900 via-school-800 to-school-700 rounded-3xl p-6 sm:p-8 text-white shadow-soft-lg relative overflow-hidden">
+      <div className="w-full relative overflow-hidden rounded-3xl bg-gradient-to-r from-school-900 via-school-800 to-school-700 p-5 sm:p-7 lg:p-8 text-white shadow-soft-lg border border-white/10">
         <div className="relative z-10 max-w-3xl">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase bg-white/15 backdrop-blur-xs text-gold-300 border border-white/10 tracking-wider">
+          <div className="mb-3.5 sm:mb-4 flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <span className="inline-flex items-center px-3 sm:px-3.5 py-1 sm:py-1.2 rounded-full text-[11px] sm:text-xs font-bold uppercase bg-white/15 backdrop-blur-xs text-gold-300 border border-white/20 shadow-soft-xs max-w-full tracking-wider break-words">
               Control Center • {settings.academicSession || 'Session 2026-27'}
             </span>
-            <span className="text-xs text-slate-200">
-              {settings.village}, {settings.postOffice}, {settings.district} (U.P.)
+            <span className="text-[11px] sm:text-xs font-medium text-cream-200/90 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold-400 shrink-0 hidden sm:inline-block"></span>
+              <span>{settings.village}, {settings.postOffice}, {settings.district} (U.P.)</span>
             </span>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold !text-white tracking-tight leading-snug drop-shadow-xs">
             Institutional Administration Console
           </h2>
-          <p className="text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed">
-            Welcome to the centralized management desk for <strong className="text-white">{settings.schoolName || 'N.D.R.N. Vidyalaya'}</strong>.
+          <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-cream-100/90 leading-relaxed max-w-2xl">
+            Welcome to the centralized management desk for <strong className="text-white font-bold">{settings.schoolName || 'N.D.R.N. Vidyalaya'}</strong>.
             Review primary admissions, academic cohorts, fee collections, faculty assignments, and published notices.
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Button
+          <div className="mt-5 sm:mt-6 flex flex-wrap items-center gap-2.5 sm:gap-3">
+            <Link
               to="/admin/admissions"
-              variant="secondary"
-              size="sm"
-              className="bg-white text-school-900 hover:bg-slate-100 font-bold"
-              leftIcon={<FileCheck2 className="w-4 h-4 text-school-700" />}
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-school-900 hover:bg-school-50 border border-white/30 transition-all shadow-soft-sm active:scale-98 shrink-0"
             >
-              Admissions Desk ({pendingAdmissions.length} New)
-            </Button>
-            <Button
+              <FileCheck2 className="w-4 h-4 text-school-700 shrink-0" />
+              <span>Admissions Desk ({pendingAdmissions.length} New)</span>
+            </Link>
+            <Link
               to="/admin/students"
-              variant="outline"
-              size="sm"
-              className="border-white/30 text-white hover:bg-white/10 font-bold"
-              leftIcon={<UserPlus className="w-4 h-4 text-gold-300" />}
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-xs transition-all shadow-soft-xs active:scale-98 shrink-0"
             >
-              Enroll Student
-            </Button>
-            <Button
+              <UserPlus className="w-4 h-4 text-gold-300 shrink-0" />
+              <span>Enroll Student</span>
+            </Link>
+            <Link
               to="/admin/settings"
-              variant="outline"
-              size="sm"
-              className="border-white/30 text-white hover:bg-white/10 font-bold"
-              leftIcon={<Settings className="w-4 h-4" />}
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-xs transition-all shadow-soft-xs active:scale-98 shrink-0"
             >
-              Website Settings
-            </Button>
+              <Settings className="w-4 h-4 text-cream-200 shrink-0" />
+              <span>Website Settings</span>
+            </Link>
           </div>
         </div>
 
-        {/* Decorative backdrop glow */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-white/10 to-transparent pointer-events-none hidden md:block"></div>
-        <div className="absolute -right-10 -bottom-10 w-60 h-60 rounded-full bg-school-600/30 blur-2xl pointer-events-none"></div>
+        {/* Decorative background accents for visual balance */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-white/10 to-transparent pointer-events-none hidden md:block"></div>
+        <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-saffron-500/20 blur-3xl pointer-events-none"></div>
+        <div className="absolute top-0 right-1/4 w-40 h-40 rounded-full bg-white/5 blur-2xl pointer-events-none"></div>
       </div>
 
       {/* 5 Core Metric Cards */}

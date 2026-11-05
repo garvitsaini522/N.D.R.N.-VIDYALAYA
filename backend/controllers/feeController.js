@@ -19,7 +19,8 @@ export async function getFees(req, res, next) {
         .sort({ dueDate: 1 })
         .skip(skip)
         .limit(parseInt(limit, 10))
-        .populate('student', 'fullName admissionNumber rollNumber class'),
+        .populate('student', 'fullName admissionNumber rollNumber class')
+        .lean(),
       Fee.countDocuments(query),
     ]);
 

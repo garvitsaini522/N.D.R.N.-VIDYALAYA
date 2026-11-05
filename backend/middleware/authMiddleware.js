@@ -17,22 +17,10 @@ export async function authenticate(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    let decoded;
-    if (token.startsWith('demo_eval_token_')) {
-      const parts = token.split('_');
-      const role = parts[3] || 'admin';
-      decoded = {
-        id: '507f1f77bcf86cd799439011',
-        email: `${role}@ndrn.edu.in`,
-        role: role,
-        name: `Administrator`,
-      };
-    } else {
-      decoded = jwt.verify(token, config.jwt.secret);
-    }
+    const decoded = jwt.verify(token, config.jwt.secret);
 
     // If database is connected, check for account status and token revocation
-    if (mongoose.connection.readyState === 1 && !token.startsWith('demo_eval_token_')) {
+    if (mongoose.connection.readyState === 1) {
       const user = await User.findById(decoded.id).select('status tokenInvalidatedAt');
       if (!user) {
         return ApiResponse.error(res, 'User associated with this token no longer exists.', 401);

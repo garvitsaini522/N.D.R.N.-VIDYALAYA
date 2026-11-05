@@ -8,7 +8,8 @@ export async function getClasses(req, res, next) {
     const { academicYear = '2026-2027', status = 'active' } = req.query;
     const classes = await Class.find({ academicYear, status })
       .populate('classTeacher', 'fullName employeeId wing email')
-      .sort({ name: 1, section: 1 });
+      .sort({ name: 1, section: 1 })
+      .lean();
 
     return ApiResponse.success(res, classes, 'Classes retrieved');
   } catch (error) {
@@ -18,7 +19,9 @@ export async function getClasses(req, res, next) {
 
 export async function getClassById(req, res, next) {
   try {
-    const classDoc = await Class.findById(req.params.id).populate('classTeacher', 'fullName email phone');
+    const classDoc = await Class.findById(req.params.id)
+      .populate('classTeacher', 'fullName email phone')
+      .lean();
     if (!classDoc) {
       throw ApiError.notFound('Class not found');
     }
@@ -26,7 +29,7 @@ export async function getClassById(req, res, next) {
     // Also get enrolled students count
     const studentCount = await Student.countDocuments({ class: classDoc._id, status: 'active' });
 
-    return ApiResponse.success(res, { ...classDoc.toObject(), studentCount }, 'Class details retrieved');
+    return ApiResponse.success(res, { ...classDoc, studentCount }, 'Class details retrieved');
   } catch (error) {
     next(error);
   }

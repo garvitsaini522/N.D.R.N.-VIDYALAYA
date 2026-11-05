@@ -70,6 +70,10 @@ export default function Faculty() {
                 <img
                   src={SCHOOL_CONFIG.leadership.image}
                   alt={SCHOOL_CONFIG.leadership.name || 'D.K. Saini'}
+                  loading="lazy"
+                  decoding="async"
+                  width="144"
+                  height="144"
                   className="w-36 h-36 rounded-3xl object-cover border-2 border-cream-300 shadow-soft-md mb-4"
                 />
               ) : (

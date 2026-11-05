@@ -15,15 +15,16 @@ export const config = {
     uri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ndrn_vidyalaya',
     options: {
       maxPoolSize: 10,
+      minPoolSize: 2,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     },
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'dev_jwt_secret_ndrn_change_in_production_9921',
+    secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
-  adminSetupKey: process.env.ADMIN_SETUP_KEY || 'ndrn_admin_secure_setup_bootstrap_key_2026',
+  adminSetupKey: process.env.ADMIN_SETUP_KEY,
   cors: {
     origin: process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
@@ -42,9 +43,26 @@ export const config = {
   },
 };
 
+// Startup validation: Stop backend with a clear error if required security variables are missing
+const missingSecurityVars = [];
+if (!process.env.JWT_SECRET) {
+  missingSecurityVars.push('JWT_SECRET');
+}
+if (!process.env.ADMIN_SETUP_KEY) {
+  missingSecurityVars.push('ADMIN_SETUP_KEY');
+}
+
+if (missingSecurityVars.length > 0) {
+  console.error(
+    `FATAL: Missing required security environment variable(s): ${missingSecurityVars.join(', ')}. ` +
+      'Please ensure both JWT_SECRET and ADMIN_SETUP_KEY are defined in your environment or .env file before starting the backend.'
+  );
+  process.exit(1);
+}
+
 // Validate that in production, sensitive variables must not be default
 if (config.env === 'production') {
-  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.includes('dev_jwt_secret')) {
+  if (process.env.JWT_SECRET && process.env.JWT_SECRET.includes('dev_jwt_secret')) {
     console.error('FATAL: In production, JWT_SECRET must be set to a secure random string.');
     process.exit(1);
   }

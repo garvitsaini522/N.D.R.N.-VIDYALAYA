@@ -23,15 +23,15 @@ export function PortalProvider({ children }) {
       return [
         {
           id: user.wardId,
-          name: user.wardName || 'Aarav Sharma',
-          grade: user.wardGrade || 'Class 5-A',
-          admissionNo: user.wardAdmissionNo || 'NDRN-2026-DEMO',
-          rollNo: user.wardRollNo || '15',
-          parentName: user.name,
-          parentPhone: user.phone,
+          name: user.wardName || 'Student Ward',
+          grade: user.wardGrade || 'Primary Wing',
+          admissionNo: user.wardAdmissionNo || user.wardId,
+          rollNo: user.wardRollNo || '—',
+          parentName: user.name || 'Parent / Guardian',
+          parentPhone: user.phone || '',
           status: 'Active',
-          attendancePercent: 94.5,
-          feeStatus: 'Paid',
+          attendancePercent: 0,
+          feeStatus: '—',
           pendingFeeAmount: 0,
         },
       ];
@@ -83,6 +83,16 @@ export function PortalProvider({ children }) {
     }
   };
 
+  const updateWardData = (wardId, updatedFields) => {
+    setAvailableWards((prev) =>
+      prev.map((w) =>
+        w.id === wardId || w.admissionNo === wardId
+          ? { ...w, ...updatedFields }
+          : w
+      )
+    );
+  };
+
   // Determine current active student data
   let currentStudent = null;
   if (user?.role === 'student') {
@@ -114,6 +124,7 @@ export function PortalProvider({ children }) {
         availableWards,
         hasMultipleChildren,
         switchWard,
+        updateWardData,
         isParent,
         isStudent,
       }}

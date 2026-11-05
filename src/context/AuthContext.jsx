@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../services/authApi';
-import { DEMO_ACCOUNTS, findDemoAccount, getDemoAccountByIdentifier } from '../config/demoAccounts';
 
 const AuthContext = createContext(null);
 
@@ -106,33 +105,6 @@ export function AuthProvider({ children }) {
     setError(null);
     setIsLoading(true);
 
-    // 1. Check if matching a temporary demo evaluation account
-    const matchedDemo = findDemoAccount(identifier, password);
-    if (matchedDemo) {
-      const demoToken = `demo_eval_token_${matchedDemo.role}_${Date.now()}`;
-      localStorage.setItem('ndrn_auth_token', demoToken);
-      localStorage.setItem('ndrn_auth_user', JSON.stringify(matchedDemo));
-      setToken(demoToken);
-      setUser(matchedDemo);
-      setIsLoading(false);
-      return {
-        success: true,
-        user: matchedDemo,
-        isDemo: true,
-        redirectTo: getDashboardRoute(matchedDemo.role),
-      };
-    }
-
-    // 1b. Check if identifier matched a known demo account, but password was incorrect
-    const demoAccountForId = getDemoAccountByIdentifier(identifier);
-    if (demoAccountForId) {
-      const message = `Incorrect password for evaluation account (${demoAccountForId.name}). Please check credentials or click "Auto-Fill".`;
-      setError(message);
-      setIsLoading(false);
-      return { success: false, error: message };
-    }
-
-    // 2. Production MongoDB backend authentication
     try {
       const result = await authApi.login(identifier, password);
       if (result && result.token) {
@@ -146,14 +118,6 @@ export function AuthProvider({ children }) {
       throw new Error('Authentication failed: Missing token in response.');
     } catch (err) {
       let message = err.message || 'Authentication failed. Please verify credentials.';
-      if (
-        message.toLowerCase().includes('database connection is currently unavailable') ||
-        message.toLowerCase().includes('failed to fetch') ||
-        message.toLowerCase().includes('networkerror') ||
-        message.toLowerCase().includes('load failed')
-      ) {
-        message = 'Invalid credentials. Note: Production MongoDB database is currently offline; please use the Evaluation / Demo Administrator credentials shown on this screen, or start MongoDB.';
-      }
       setError(message);
       setIsLoading(false);
       return { success: false, error: message };
@@ -161,32 +125,11 @@ export function AuthProvider({ children }) {
   };
 
   /**
-   * Quick 1-click helper to sign in as a specific demo role
-   */
-  const loginAsDemoRole = (role) => {
-    const demoAccount = DEMO_ACCOUNTS[role];
-    if (!demoAccount) return { success: false, error: 'Invalid demo role' };
-
-    const demoToken = `demo_eval_token_${demoAccount.role}_${Date.now()}`;
-    localStorage.setItem('ndrn_auth_token', demoToken);
-    localStorage.setItem('ndrn_auth_user', JSON.stringify(demoAccount));
-    setToken(demoToken);
-    setUser(demoAccount);
-    setError(null);
-    return {
-      success: true,
-      user: demoAccount,
-      isDemo: true,
-      redirectTo: getDashboardRoute(demoAccount.role),
-    };
-  };
-
-  /**
    * Logout user and invalidate token
    */
   const logout = async () => {
     try {
-      if (token && !token.startsWith('demo_eval_token_')) {
+      if (token) {
         await authApi.logout(token);
       }
     } catch {
@@ -210,9 +153,7 @@ export function AuthProvider({ children }) {
         isLoading,
         error,
         isAuthenticated: !!user,
-        isDemoSession: !!user?.isDemo,
         login,
-        loginAsDemoRole,
         logout,
         clearError,
       }}

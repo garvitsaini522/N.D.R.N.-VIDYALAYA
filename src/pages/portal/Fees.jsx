@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   CreditCard,
   CheckCircle2,
@@ -26,6 +27,10 @@ import SchoolLogo from '../../components/common/SchoolLogo';
 
 export default function Fees() {
   const { user } = useAuth();
+
+  if (user?.role === 'teacher') {
+    return <Navigate to="/teacher/dashboard" replace />;
+  }
   const {
     currentStudent,
     availableWards,

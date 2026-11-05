@@ -32,12 +32,15 @@ const PortalHomework = lazy(() => import('../pages/portal/Homework'));
 const PortalResults = lazy(() => import('../pages/portal/Results'));
 const PortalFees = lazy(() => import('../pages/portal/Fees'));
 const PortalTimetable = lazy(() => import('../pages/portal/Timetable'));
-const PortalNotices = lazy(() => import('../pages/portal/Notices'));
-const PortalEvents = lazy(() => import('../pages/portal/Events'));
 const PortalDownloads = lazy(() => import('../pages/portal/Downloads'));
 
 // Faculty / Teacher Portal Pages
 const TeacherDashboard = lazy(() => import('../pages/teacher/Dashboard'));
+const TeacherAttendance = lazy(() => import('../pages/teacher/Attendance'));
+const TeacherStudents = lazy(() => import('../pages/teacher/Students'));
+const TeacherClasses = lazy(() => import('../pages/teacher/Classes'));
+const TeacherTimetable = lazy(() => import('../pages/teacher/Timetable'));
+const TeacherProfile = lazy(() => import('../pages/teacher/Profile'));
 
 // Admin & Staff Management Pages
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -64,6 +67,14 @@ function PortalRootRouter() {
   if (user?.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />;
   if (user?.role === 'parent') return <Navigate to="/parent/dashboard" replace />;
   return <Navigate to="/student/dashboard" replace />;
+}
+
+function TeacherRouteRedirect({ to, children }) {
+  const { user } = useAuth();
+  if (user?.role === 'teacher') {
+    return <Navigate to={to} replace />;
+  }
+  return children;
 }
 
 export default function AppRoutes() {
@@ -101,16 +112,72 @@ export default function AppRoutes() {
             }
           >
             <Route index element={<PortalRootRouter />} />
-            <Route path="profile" element={<PortalProfile />} />
-            <Route path="attendance" element={<PortalAttendance />} />
-            <Route path="homework" element={<PortalHomework />} />
-            <Route path="timetable" element={<PortalTimetable />} />
-            <Route path="results" element={<PortalResults />} />
-            <Route path="academics" element={<PortalResults />} />
-            <Route path="fees" element={<PortalFees />} />
-            <Route path="notices" element={<PortalNotices />} />
-            <Route path="events" element={<PortalEvents />} />
+            <Route
+              path="profile"
+              element={
+                <TeacherRouteRedirect to="/teacher/profile">
+                  <PortalProfile />
+                </TeacherRouteRedirect>
+              }
+            />
+            <Route
+              path="attendance"
+              element={
+                <TeacherRouteRedirect to="/teacher/attendance">
+                  <PortalAttendance />
+                </TeacherRouteRedirect>
+              }
+            />
+            <Route
+              path="homework"
+              element={
+                <TeacherRouteRedirect to="/teacher/dashboard">
+                  <PortalHomework />
+                </TeacherRouteRedirect>
+              }
+            />
+            <Route
+              path="timetable"
+              element={
+                <TeacherRouteRedirect to="/teacher/timetable">
+                  <PortalTimetable />
+                </TeacherRouteRedirect>
+              }
+            />
+            <Route
+              path="results"
+              element={
+                <TeacherRouteRedirect to="/teacher/students">
+                  <PortalResults />
+                </TeacherRouteRedirect>
+              }
+            />
+            <Route
+              path="academics"
+              element={
+                <TeacherRouteRedirect to="/teacher/classes">
+                  <PortalResults />
+                </TeacherRouteRedirect>
+              }
+            />
+            <Route
+              path="fees"
+              element={
+                <TeacherRouteRedirect to="/teacher/dashboard">
+                  <PortalFees />
+                </TeacherRouteRedirect>
+              }
+            />
             <Route path="downloads" element={<PortalDownloads />} />
+            <Route
+              path="notices"
+              element={
+                <TeacherRouteRedirect to="/teacher/dashboard">
+                  <Navigate to="/portal" replace />
+                </TeacherRouteRedirect>
+              }
+            />
+            <Route path="events" element={<Navigate to="/portal" replace />} />
           </Route>
 
           {/* Student Dedicated Portal (Protected - Student Role Only) */}
@@ -128,14 +195,14 @@ export default function AppRoutes() {
             <Route path="dashboard" element={<StudentDashboard />} />
             <Route path="profile" element={<PortalProfile />} />
             <Route path="attendance" element={<PortalAttendance />} />
-            <Route path="homework" element={<PortalHomework />} />
+            <Route path="homework" element={<Navigate to="/student/dashboard" replace />} />
             <Route path="timetable" element={<PortalTimetable />} />
             <Route path="results" element={<PortalResults />} />
             <Route path="academics" element={<PortalResults />} />
             <Route path="fees" element={<PortalFees />} />
-            <Route path="notices" element={<PortalNotices />} />
-            <Route path="events" element={<PortalEvents />} />
             <Route path="downloads" element={<PortalDownloads />} />
+            <Route path="notices" element={<Navigate to="/student/dashboard" replace />} />
+            <Route path="events" element={<Navigate to="/student/dashboard" replace />} />
           </Route>
 
           {/* Parent Dedicated Portal (Protected - Parent Role Only) */}
@@ -152,15 +219,15 @@ export default function AppRoutes() {
             <Route index element={<Navigate to="/parent/dashboard" replace />} />
             <Route path="dashboard" element={<ParentDashboard />} />
             <Route path="profile" element={<PortalProfile />} />
-            <Route path="attendance" element={<PortalAttendance />} />
+            <Route path="attendance" element={<Navigate to="/parent/dashboard" replace />} />
             <Route path="homework" element={<PortalHomework />} />
-            <Route path="timetable" element={<PortalTimetable />} />
+            <Route path="timetable" element={<Navigate to="/parent/dashboard" replace />} />
             <Route path="results" element={<PortalResults />} />
             <Route path="academics" element={<PortalResults />} />
             <Route path="fees" element={<PortalFees />} />
-            <Route path="notices" element={<PortalNotices />} />
-            <Route path="events" element={<PortalEvents />} />
             <Route path="downloads" element={<PortalDownloads />} />
+            <Route path="notices" element={<Navigate to="/parent/dashboard" replace />} />
+            <Route path="events" element={<Navigate to="/parent/dashboard" replace />} />
           </Route>
 
           {/* Teacher Dedicated Portal (Protected - Teacher Role Only) */}
@@ -176,6 +243,14 @@ export default function AppRoutes() {
           >
             <Route index element={<Navigate to="/teacher/dashboard" replace />} />
             <Route path="dashboard" element={<TeacherDashboard />} />
+            <Route path="attendance" element={<TeacherAttendance />} />
+            <Route path="students" element={<TeacherStudents />} />
+            <Route path="classes" element={<TeacherClasses />} />
+            <Route path="timetable" element={<TeacherTimetable />} />
+            <Route path="homework" element={<Navigate to="/teacher/dashboard" replace />} />
+            <Route path="notices" element={<Navigate to="/teacher/dashboard" replace />} />
+            <Route path="leave" element={<Navigate to="/teacher/dashboard" replace />} />
+            <Route path="profile" element={<TeacherProfile />} />
           </Route>
 
           {/* Admin & Staff Management Console (Protected) */}

@@ -4,7 +4,6 @@ import {
   CalendarCheck2,
   GraduationCap,
   CreditCard,
-  BookOpenCheck,
   Clock,
   ArrowRight,
   FileText,
@@ -13,7 +12,6 @@ import {
   CheckCircle2,
   Sparkles,
   Calendar,
-  Bell,
   FileDown,
   User,
   ShieldCheck,
@@ -41,11 +39,8 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [attendance, setAttendance] = useState(null);
-  const [homework, setHomework] = useState([]);
   const [timetable, setTimetable] = useState(null);
   const [results, setResults] = useState(null);
-  const [notices, setNotices] = useState([]);
-  const [events, setEvents] = useState([]);
   const [downloads, setDownloads] = useState([]);
 
   useEffect(() => {
@@ -63,22 +58,16 @@ export default function StudentDashboard() {
         const studentId = currentStudent.id || currentStudent.admissionNo || user.id;
         const grade = currentStudent.grade || '';
 
-        const [attRes, hwRes, ttRes, resRes, noticesRes, eventsRes] = await Promise.all([
+        const [attRes, ttRes, resRes] = await Promise.all([
           portalApi.getAttendance(studentId),
-          portalApi.getHomework(grade),
           portalApi.getTimetable(grade),
           portalApi.getResults(studentId),
-          portalApi.getNotices('students'),
-          portalApi.getEvents(),
         ]);
 
         if (isMounted) {
           setAttendance(attRes.data);
-          setHomework(hwRes.data || []);
           setTimetable(ttRes.data);
           setResults(resRes.data);
-          setNotices((noticesRes.data || []).slice(0, 3));
-          setEvents((eventsRes.data || []).slice(0, 3));
           setDownloads(portalApi.getDownloads().slice(0, 4));
           setLoading(false);
         }
@@ -118,43 +107,51 @@ export default function StudentDashboard() {
     <div className="space-y-6">
       {/* Student Welcome Banner */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 text-slate-900 border border-slate-200/90 shadow-soft-lg relative overflow-hidden">
-        <div className="relative z-10 max-w-2xl">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-school-50 text-school-800 border border-school-200 mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Academic Session 2026-27</span>
-          </span>
+        <div className="relative z-10 max-w-3xl">
+          {/* Academic Session Badge */}
+          <div className="mb-3">
+            <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-school-950 via-school-900 to-school-800 border border-white/15 shadow-soft-sm hover:shadow-soft-md hover:border-gold-400/30 transition-all duration-200 select-none">
+              <Sparkles className="w-3.5 h-3.5 text-gold-400 shrink-0" aria-hidden="true" />
+              <span className="tracking-wide text-cream-50">Academic Session 2026–27</span>
+            </span>
+          </div>
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          {/* Welcome Heading */}
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Welcome, {currentStudent?.name || 'Student'}!
           </h2>
 
-          <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-            Enrolled in <span className="font-bold text-slate-900">{currentStudent?.grade || 'Class'}</span> {currentStudent?.rollNo ? `(Roll #${currentStudent.rollNo})` : ''} • Daulatyarpur, Madhoganj campus.
-          </p>
+          {/* Information Row: Class, Roll Number & Campus */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm text-slate-600 leading-normal">
+            <span className="inline-flex items-center gap-1 font-medium">
+              <span>Enrolled in</span>
+              <span className="font-bold text-slate-900">{currentStudent?.grade || 'Class'}</span>
+              {currentStudent?.rollNo && (
+                <span className="font-semibold text-slate-700">(Roll #{currentStudent.rollNo})</span>
+              )}
+            </span>
+            <span className="text-slate-300 select-none hidden sm:inline" aria-hidden="true">•</span>
+            <span className="font-medium text-slate-600">
+              Daulatyarpur, Madhoganj campus.
+            </span>
+          </div>
 
-          <div className="mt-5 flex flex-wrap gap-2.5">
+          {/* Action Buttons: Horizontally aligned on desktop, responsive on mobile */}
+          <div className="mt-5 flex flex-wrap sm:flex-nowrap items-center gap-3">
             <Button
               to="/portal/results"
               variant="secondary"
               size="sm"
-              className="bg-gradient-to-r from-school-900 via-school-800 to-school-700 text-white hover:from-school-950 hover:to-school-800 font-bold shadow-soft-sm"
+              className="bg-gradient-to-r from-school-900 via-school-800 to-school-700 text-white hover:from-school-950 hover:to-school-800 font-bold shadow-soft-sm shrink-0"
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               My Report Card
             </Button>
             <Button
-              to="/portal/homework"
-              variant="outline"
-              size="sm"
-              className="border-school-800/30 text-school-900 hover:bg-school-50 font-bold"
-            >
-              Daily Tasks
-            </Button>
-            <Button
               to="/portal/profile"
               variant="outline"
               size="sm"
-              className="border-school-800/30 text-school-900 hover:bg-school-50 font-bold"
+              className="border-school-800/30 text-school-900 hover:bg-school-50 font-bold shrink-0"
             >
               My Profile
             </Button>
@@ -165,8 +162,8 @@ export default function StudentDashboard() {
         <div className="absolute -right-10 -bottom-10 w-60 h-60 rounded-full bg-school-600/10 blur-2xl pointer-events-none"></div>
       </div>
 
-      {/* 4 Stat Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* 3 Stat Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <Card className="p-5 border-l-4 border-l-emerald-500">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Attendance Rate</span>
@@ -211,21 +208,6 @@ export default function StudentDashboard() {
           </p>
         </Card>
 
-        <Card className="p-5 border-l-4 border-l-amber-500">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Homework Tasks</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <BookOpenCheck className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-slate-900">
-              {homework.filter((h) => h.status === 'Pending').length} Pending
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">Daily home study assignments</p>
-        </Card>
-
         <Card className="p-5 border-l-4 border-l-saffron-500">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Transport Route</span>
@@ -244,10 +226,10 @@ export default function StudentDashboard() {
         </Card>
       </div>
 
-      {/* Grid: Schedule & Pending Homework */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Class Schedule (7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-6 shadow-soft-sm">
+      {/* Schedule */}
+      <div className="w-full">
+        {/* Class Schedule */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-soft-sm">
           <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -315,73 +297,6 @@ export default function StudentDashboard() {
               Class timetable is currently unavailable.
             </div>
           )}
-        </div>
-
-        {/* Right: Homework & Announcements (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Homework Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-soft-sm">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <BookOpenCheck className="w-4 h-4 text-amber-600" />
-                <span>Today's Homework</span>
-              </h3>
-              <Link to="/portal/homework" className="text-xs font-bold text-school-600 hover:underline">
-                View All
-              </Link>
-            </div>
-
-            {homework.length > 0 ? (
-              <div className="space-y-3">
-                {homework.slice(0, 3).map((hw) => (
-                  <div key={hw.id} className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-school-100 text-school-800">
-                        {hw.subject}
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                        {hw.dueDate}
-                      </span>
-                    </div>
-                    <h4 className="text-xs font-bold text-slate-900 mt-2">{hw.title}</h4>
-                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">{hw.description}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-xs text-slate-400">
-                No pending homework tasks.
-              </div>
-            )}
-          </div>
-
-          {/* School Notices */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-soft-sm">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Bell className="w-4 h-4 text-school-600" />
-                <span>School Announcements</span>
-              </h3>
-              <Link to="/portal/notices" className="text-xs font-bold text-school-600 hover:underline">
-                More
-              </Link>
-            </div>
-
-            {notices.length > 0 ? (
-              <div className="space-y-2.5">
-                {notices.map((n) => (
-                  <div key={n.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
-                    <div className="text-xs font-bold text-slate-800">{n.title}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{n.date}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-xs text-slate-400">
-                No notices published yet.
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

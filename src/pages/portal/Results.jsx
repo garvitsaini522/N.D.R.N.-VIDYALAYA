@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   GraduationCap,
   Award,
@@ -25,6 +26,10 @@ import SchoolLogo from '../../components/common/SchoolLogo';
 
 export default function Results() {
   const { user } = useAuth();
+
+  if (user?.role === 'teacher') {
+    return <Navigate to="/teacher/students" replace />;
+  }
   const {
     currentStudent,
     availableWards,
@@ -138,37 +143,39 @@ export default function Results() {
       )}
 
       {/* Summary Scorecard Banner */}
-      <div className="bg-gradient-to-r from-school-950 via-school-900 to-school-800 rounded-3xl p-6 sm:p-8 text-white shadow-soft-lg flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-gold-400 text-slate-900 flex items-center justify-center font-black text-2xl shadow-soft-md shrink-0">
+      <div className="bg-gradient-to-r from-school-950 via-school-900 to-school-800 rounded-3xl p-6 sm:p-7 md:p-8 text-white shadow-soft-lg flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+          <div className="w-16 h-16 rounded-2xl bg-gold-400 text-slate-950 flex items-center justify-center font-black text-2xl shadow-soft-md shrink-0 border border-gold-300/40 select-none">
             {resultsData?.overallGrade || 'A1'}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs uppercase font-extrabold tracking-wider text-gold-300">
-                Term I Performance
+                {activeTerm.includes('Term II') ? 'Term II Performance' : 'Term I Performance'}
               </span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white">
-                {resultsData?.rank || 'Outstanding Standard'}
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/15 text-white border border-white/20">
+                {activeTerm.includes('Term II') ? 'Upcoming Evaluation' : (resultsData?.rank || 'Outstanding Standard')}
               </span>
             </div>
-            <h3 className="text-3xl font-black mt-1">{percentage}% Aggregate</h3>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-1">
+              {percentage}% Aggregate
+            </h3>
+            <p className="text-xs sm:text-sm text-cream-100/90 font-medium mt-1">
               Score: {totalObtained} / {totalMax} Marks • Primary Wing Standard
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-white/10 p-1.5 rounded-2xl border border-white/10">
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-white/10 backdrop-blur-xs p-1.5 rounded-2xl border border-white/15 w-full sm:w-auto shrink-0 justify-center">
           {['Term I (2026-27)', 'Term II (Upcoming)'].map((term) => (
             <button
               key={term}
               type="button"
               onClick={() => setActiveTerm(term)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-1 sm:flex-initial text-center ${
                 activeTerm === term
-                  ? 'bg-white text-school-900 shadow-soft-sm'
-                  : 'text-slate-200 hover:text-white hover:bg-white/5'
+                  ? 'bg-white text-school-900 shadow-soft-sm font-extrabold'
+                  : 'text-cream-100/80 hover:text-white hover:bg-white/10 font-semibold'
               }`}
             >
               {term}
@@ -261,7 +268,7 @@ export default function Results() {
           "{resultsData?.teacherRemarks}"
         </blockquote>
         <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-school-100">
-          <span>Evaluator: {resultsData?.classTeacher || 'Mrs. Priya Sharma'}</span>
+          <span>Evaluator: {resultsData?.classTeacher || 'Class Incharge'}</span>
           <span>Verified by: Principal & Head of Institution, Daulatyarpur</span>
         </div>
       </Card>

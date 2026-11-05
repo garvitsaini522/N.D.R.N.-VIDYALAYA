@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Teacher } from '../models/Teacher.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
@@ -13,7 +14,8 @@ export async function getTeachers(req, res, next) {
     const teachers = await Teacher.find(query)
       .populate('assignedClasses', 'name section')
       .populate('user', 'email avatar')
-      .sort({ wing: 1, fullName: 1 });
+      .sort({ wing: 1, fullName: 1 })
+      .lean();
 
     return ApiResponse.success(res, teachers, 'Faculty list retrieved');
   } catch (error) {
@@ -23,9 +25,25 @@ export async function getTeachers(req, res, next) {
 
 export async function getTeacherById(req, res, next) {
   try {
-    const teacher = await Teacher.findById(req.params.id)
-      .populate('assignedClasses')
-      .populate('user', 'email avatar lastLogin');
+    const isMe = req.params.id === 'me';
+    let teacher;
+
+    if (isMe) {
+      if (!req.user) {
+        throw ApiError.unauthorized('Authentication required to view your profile');
+      }
+      teacher = await Teacher.findOne({ user: req.user.id })
+        .populate('assignedClasses')
+        .populate('user', 'email avatar lastLogin')
+        .lean();
+    } else {
+      const isObjectId = mongoose.Types.ObjectId.isValid(req.params.id);
+      const query = isObjectId ? { _id: req.params.id } : { employeeId: req.params.id };
+      teacher = await Teacher.findOne(query)
+        .populate('assignedClasses')
+        .populate('user', 'email avatar lastLogin')
+        .lean();
+    }
 
     if (!teacher) {
       throw ApiError.notFound('Teacher record not found');
@@ -48,14 +66,58 @@ export async function createTeacher(req, res, next) {
 
 export async function updateTeacher(req, res, next) {
   try {
-    const teacher = await Teacher.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!teacher) {
+    const isMe = req.params.id === 'me';
+    let query;
+
+    if (isMe) {
+      if (!req.user) {
+        throw ApiError.unauthorized('Authentication required');
+      }
+      query = { user: req.user.id };
+    } else {
+      const isObjectId = mongoose.Types.ObjectId.isValid(req.params.id);
+      query = isObjectId ? { _id: req.params.id } : { employeeId: req.params.id };
+    }
+
+    const existingTeacher = await Teacher.findOne(query);
+    if (!existingTeacher) {
       throw ApiError.notFound('Teacher record not found');
     }
-    return ApiResponse.success(res, teacher, 'Teacher details updated');
+
+    let updateFields = {};
+
+    if (req.user?.role === 'teacher') {
+      // Teachers can only update permitted personal particulars
+      const isOwnProfile =
+        isMe ||
+        (existingTeacher.user && existingTeacher.user.toString() === req.user.id.toString()) ||
+        existingTeacher.employeeId === req.user.employeeId;
+
+      if (!isOwnProfile) {
+        throw ApiError.forbidden('Teachers are only permitted to update their own profile');
+      }
+
+      const { phone, bio, qualification, photoUrl, experienceYears } = req.body;
+      if (phone) updateFields.phone = phone;
+      if (bio !== undefined) updateFields.bio = bio;
+      if (qualification) updateFields.qualification = qualification;
+      if (photoUrl !== undefined) updateFields.photoUrl = photoUrl;
+      if (experienceYears !== undefined) updateFields.experienceYears = experienceYears;
+    } else {
+      // Administrators can update all teacher particulars
+      updateFields = { ...req.body };
+      delete updateFields._id;
+    }
+
+    const teacher = await Teacher.findOneAndUpdate(
+      query,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    )
+      .populate('assignedClasses')
+      .populate('user', 'email avatar lastLogin');
+
+    return ApiResponse.success(res, teacher, 'Teacher details updated successfully');
   } catch (error) {
     next(error);
   }

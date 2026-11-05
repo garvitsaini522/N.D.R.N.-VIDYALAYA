@@ -533,8 +533,6 @@ export const SEED_COURSES = [
   },
 ];
 
-import { DEMO_SAMPLE_DATA } from '../config/demoAccounts.js';
-
 // Known demo identifiers from previous demo seeds to be purged from storage
 const DEMO_IDENTIFIERS = new Set([
   'NDRN-2026-0412', 'NDRN-2026-0413', 'NDRN-2026-0414', 'NDRN-2026-0415',
@@ -552,22 +550,10 @@ const DEMO_IDENTIFIERS = new Set([
 ]);
 
 export function isDemoSessionActive() {
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const authUser = localStorage.getItem('ndrn_auth_user');
-      if (authUser) {
-        const parsed = JSON.parse(authUser);
-        return !!parsed.isDemo;
-      }
-    }
-  } catch {
-    return false;
-  }
   return false;
 }
 
 function purgeDemoRecords(data) {
-  if (isDemoSessionActive()) return data; // Preserve sample evaluation data during demo session
   if (!Array.isArray(data)) return data;
   return data.filter((item) => {
     if (!item) return false;
@@ -689,11 +675,7 @@ export const DataService = {
 
   // --- RECENT ACTIVITIES LOG ---
   getActivities() {
-    const list = getStorage(STORAGE_KEYS.ACTIVITIES, SEED_ACTIVITIES);
-    if (isDemoSessionActive() && list.length === 0) {
-      return DEMO_SAMPLE_DATA.adminActivities || [];
-    }
-    return list;
+    return getStorage(STORAGE_KEYS.ACTIVITIES, SEED_ACTIVITIES);
   },
   logActivity(action, description, category = 'system') {
     const current = this.getActivities();
@@ -711,11 +693,7 @@ export const DataService = {
 
   // --- STUDENTS CRUD ---
   getStudents() {
-    const stored = getStorage(STORAGE_KEYS.STUDENTS, SEED_STUDENTS);
-    if (isDemoSessionActive() && stored.length === 0) {
-      return DEMO_SAMPLE_DATA.demoStudents || [];
-    }
-    return stored;
+    return getStorage(STORAGE_KEYS.STUDENTS, SEED_STUDENTS);
   },
   getStudentById(id) {
     const list = this.getStudents();
@@ -740,10 +718,10 @@ export const DataService = {
   },
   updateStudent(id, updatedFields) {
     const current = this.getStudents();
-    const updated = current.map((s) => (s.id === id ? { ...s, ...updatedFields } : s));
+    const updated = current.map((s) => (s.id === id || s.admissionNo === id ? { ...s, ...updatedFields } : s));
     setStorage(STORAGE_KEYS.STUDENTS, updated);
     this.logActivity('Student Updated', `Updated profile for ID ${id}`, 'student');
-    return updated.find((s) => s.id === id);
+    return updated.find((s) => s.id === id || s.admissionNo === id);
   },
   deleteStudent(id) {
     const current = this.getStudents();
@@ -756,11 +734,7 @@ export const DataService = {
 
   // --- PARENTS CRUD ---
   getParents() {
-    const stored = getStorage(STORAGE_KEYS.PARENTS, SEED_PARENTS);
-    if (isDemoSessionActive() && stored.length === 0) {
-      return DEMO_SAMPLE_DATA.demoParents || [];
-    }
-    return stored;
+    return getStorage(STORAGE_KEYS.PARENTS, SEED_PARENTS);
   },
   getParentById(id) {
     const list = this.getParents();
@@ -806,11 +780,7 @@ export const DataService = {
 
   // --- TEACHERS CRUD ---
   getTeachers() {
-    const stored = getStorage(STORAGE_KEYS.TEACHERS, SEED_TEACHERS);
-    if (isDemoSessionActive() && stored.length === 0) {
-      return DEMO_SAMPLE_DATA.demoTeachers || [];
-    }
-    return stored;
+    return getStorage(STORAGE_KEYS.TEACHERS, SEED_TEACHERS);
   },
   getTeacherById(id) {
     const list = this.getTeachers();
@@ -848,9 +818,6 @@ export const DataService = {
 
   // --- CLASSES CRUD ---
   getClasses() {
-    if (isDemoSessionActive()) {
-      return DEMO_SAMPLE_DATA.demoClasses || SEED_CLASSES;
-    }
     const classes = getStorage(STORAGE_KEYS.CLASSES, SEED_CLASSES);
     const students = this.getStudents();
     return classes.map((cls) => ({
@@ -917,11 +884,7 @@ export const DataService = {
 
   // --- ATTENDANCE & LEAVE MANAGEMENT ---
   getAttendanceRecords() {
-    const list = getStorage(STORAGE_KEYS.ATTENDANCE, []);
-    if (isDemoSessionActive() && list.length === 0) {
-      return DEMO_SAMPLE_DATA.attendanceRecords || [];
-    }
-    return list;
+    return getStorage(STORAGE_KEYS.ATTENDANCE, []);
   },
   markClassAttendance(record) {
     const current = this.getAttendanceRecords();
@@ -937,6 +900,32 @@ export const DataService = {
   },
   getLeaveRequests() {
     return getStorage(STORAGE_KEYS.LEAVES, []);
+  },
+  updateLeaveStatus(id, status, reviewerName = 'Class Teacher') {
+    const current = this.getLeaveRequests();
+    const updated = current.map((l) =>
+      l.id === id ? { ...l, status, approvedBy: reviewerName, reviewedAt: new Date().toISOString().split('T')[0] } : l
+    );
+    setStorage(STORAGE_KEYS.LEAVES, updated);
+    this.logActivity('Leave Status Updated', `Leave ${id} marked ${status} by ${reviewerName}`, 'attendance');
+    return updated.find((l) => l.id === id);
+  },
+  getTeacherLeaves() {
+    return getStorage('ndrn_teacher_leaves', []);
+  },
+  applyTeacherLeave(leaveData) {
+    const current = this.getTeacherLeaves();
+    const newLeave = {
+      id: `TL-${Date.now().toString().slice(-4)}`,
+      status: 'Pending',
+      appliedOn: new Date().toISOString().split('T')[0],
+      approvedBy: 'Pending Principal Approval',
+      ...leaveData,
+    };
+    const updated = [newLeave, ...current];
+    setStorage('ndrn_teacher_leaves', updated);
+    this.logActivity('Faculty Leave Applied', `Applied by ${newLeave.teacherName || 'Faculty'}`, 'faculty');
+    return newLeave;
   },
   addLeaveRequest(leaveData) {
     const current = this.getLeaveRequests();
@@ -956,9 +945,6 @@ export const DataService = {
   // --- HOMEWORK & TASKS ---
   getHomeworkTasks(grade) {
     let all = getStorage(STORAGE_KEYS.HOMEWORK, []);
-    if (isDemoSessionActive() && all.length === 0) {
-      all = DEMO_SAMPLE_DATA.homeworkTasks || [];
-    }
     if (!grade || grade === 'All') return all;
     const cleanGrade = grade.split('-')[0].trim();
     return all.filter((t) => !t.grade || t.grade.startsWith(cleanGrade) || cleanGrade.startsWith(t.grade));
@@ -991,15 +977,19 @@ export const DataService = {
     setStorage(STORAGE_KEYS.HOMEWORK, updated);
     return updated.find((t) => t.id === taskId);
   },
+  deleteHomeworkTask(taskId) {
+    const all = this.getHomeworkTasks('All');
+    const updated = all.filter((t) => t.id !== taskId);
+    setStorage(STORAGE_KEYS.HOMEWORK, updated);
+    this.logActivity('Homework Removed', `Deleted homework task ${taskId}`, 'academic');
+    return updated;
+  },
 
   // --- TIMETABLE ---
   getTimetableByClass(grade = 'Class 5') {
     const timetables = getStorage(STORAGE_KEYS.TIMETABLES, {});
     const cleanGrade = grade.split('-')[0].trim();
     if (timetables[cleanGrade]) return timetables[cleanGrade];
-    if (isDemoSessionActive()) {
-      return DEMO_SAMPLE_DATA.timetable;
-    }
     return null;
   },
   saveTimetable(grade, timetableData) {
@@ -1014,9 +1004,6 @@ export const DataService = {
   getStudentResults(studentId) {
     const results = getStorage(STORAGE_KEYS.RESULTS, {});
     if (results[studentId]) return results[studentId];
-    if (isDemoSessionActive()) {
-      return DEMO_SAMPLE_DATA.studentResults;
-    }
     return null;
   },
   saveStudentResult(studentId, resultData) {
@@ -1028,31 +1015,12 @@ export const DataService = {
 
   // --- FEES MANAGEMENT & STUDENT LEDGER ---
   getFees() {
-    const list = getStorage(STORAGE_KEYS.FEES, SEED_FEES);
-    if (isDemoSessionActive() && list.length === 0) {
-      return DEMO_SAMPLE_DATA.feeTransactions || [];
-    }
-    return list;
+    return getStorage(STORAGE_KEYS.FEES, SEED_FEES);
   },
   getFeeTransactions() {
     return this.getFees();
   },
   getStudentFeeLedger(studentId) {
-    if (isDemoSessionActive()) {
-      return {
-        studentId: studentId || 'DEMO-STU-01',
-        summary: {
-          totalBilled: 12800,
-          totalPaid: 9600,
-          outstanding: 3200,
-          nextDueDate: '10 Jan 2027',
-          status: 'Quarter 4 Due',
-        },
-        invoices: DEMO_SAMPLE_DATA.feeInvoices || [],
-        receipts: DEMO_SAMPLE_DATA.feeTransactions || [],
-      };
-    }
-
     const allFees = this.getFees();
     const studentInvoices = allFees.filter(
       (f) => studentId && f.studentId === studentId
@@ -1102,9 +1070,6 @@ export const DataService = {
   // --- NOTICES CRUD ---
   getNotices(targetAudience = 'all') {
     let list = getStorage(STORAGE_KEYS.NOTICES, SEED_NOTICES);
-    if (isDemoSessionActive() && list.length === 0) {
-      list = DEMO_SAMPLE_DATA.adminNotices || [];
-    }
     if (!targetAudience || targetAudience === 'all') return list;
     return list.filter((n) => !n.audience || n.audience === 'all' || n.audience === targetAudience);
   },
@@ -1156,11 +1121,7 @@ export const DataService = {
 
   // --- EVENTS CRUD ---
   getEvents() {
-    const list = getStorage(STORAGE_KEYS.EVENTS, SEED_EVENTS);
-    if (isDemoSessionActive() && list.length === 0) {
-      return DEMO_SAMPLE_DATA.adminEvents || [];
-    }
-    return list;
+    return getStorage(STORAGE_KEYS.EVENTS, SEED_EVENTS);
   },
   addEvent(eventData) {
     const current = this.getEvents();
@@ -1257,11 +1218,7 @@ export const DataService = {
 
   // --- ADMISSIONS CRUD ---
   getAdmissions() {
-    const list = getStorage(STORAGE_KEYS.ADMISSIONS, SEED_ADMISSIONS);
-    if (isDemoSessionActive() && list.length === 0) {
-      return DEMO_SAMPLE_DATA.adminAdmissions || [];
-    }
-    return list;
+    return getStorage(STORAGE_KEYS.ADMISSIONS, SEED_ADMISSIONS);
   },
   addAdmissionInquiry(data) {
     const current = this.getAdmissions();

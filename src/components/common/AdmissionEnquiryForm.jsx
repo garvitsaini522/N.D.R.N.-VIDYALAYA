@@ -186,13 +186,14 @@ export default function AdmissionEnquiryForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Guardian Name */}
             <div>
-              <label className="block text-xs font-bold text-brown-700 mb-1">
+              <label htmlFor="enquiry-parentName" className="block text-xs font-bold text-brown-700 mb-1">
                 Parent / Guardian Full Name <span className="text-saffron-600">*</span>
               </label>
               <input
+                id="enquiry-parentName"
                 type="text"
                 required
-                placeholder="e.g. Satish Sharma"
+                placeholder="Enter parent / guardian name"
                 value={formData.parentName}
                 onChange={(e) => {
                   setFormData({ ...formData, parentName: e.target.value });
@@ -211,13 +212,14 @@ export default function AdmissionEnquiryForm({
 
             {/* Student Name */}
             <div>
-              <label className="block text-xs font-bold text-brown-700 mb-1">
+              <label htmlFor="enquiry-studentName" className="block text-xs font-bold text-brown-700 mb-1">
                 Candidate / Student Name <span className="text-saffron-600">*</span>
               </label>
               <input
+                id="enquiry-studentName"
                 type="text"
                 required
-                placeholder="e.g. Ananya Sharma"
+                placeholder="Enter student full name"
                 value={formData.studentName}
                 onChange={(e) => {
                   setFormData({ ...formData, studentName: e.target.value });
@@ -238,10 +240,11 @@ export default function AdmissionEnquiryForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Grade Applying For */}
             <div>
-              <label className="block text-xs font-bold text-brown-700 mb-1">
+              <label htmlFor="enquiry-gradeApplying" className="block text-xs font-bold text-brown-700 mb-1">
                 Grade Applying For <span className="text-saffron-600">*</span>
               </label>
               <select
+                id="enquiry-gradeApplying"
                 value={formData.gradeApplying}
                 onChange={(e) => setFormData({ ...formData, gradeApplying: e.target.value })}
                 className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-cream-300 bg-white text-brown-800 font-medium focus:border-saffron-500 focus:ring-1 focus:ring-saffron-500"
@@ -259,10 +262,11 @@ export default function AdmissionEnquiryForm({
 
             {/* Mobile Number */}
             <div>
-              <label className="block text-xs font-bold text-brown-700 mb-1">
+              <label htmlFor="enquiry-phone" className="block text-xs font-bold text-brown-700 mb-1">
                 Contact Mobile Number <span className="text-saffron-600">*</span>
               </label>
               <input
+                id="enquiry-phone"
                 type="tel"
                 required
                 placeholder="Enter 10-digit mobile number"
@@ -285,10 +289,11 @@ export default function AdmissionEnquiryForm({
 
           {/* Email Address (Optional) */}
           <div>
-            <label className="block text-xs font-bold text-brown-700 mb-1">
+            <label htmlFor="enquiry-email" className="block text-xs font-bold text-brown-700 mb-1">
               Email Address <span className="text-brown-500 font-normal">(Optional)</span>
             </label>
             <input
+              id="enquiry-email"
               type="email"
               placeholder="Enter email address"
               value={formData.email}
@@ -309,10 +314,11 @@ export default function AdmissionEnquiryForm({
 
           {/* Message */}
           <div>
-            <label className="block text-xs font-bold text-brown-700 mb-1">
+            <label htmlFor="enquiry-message" className="block text-xs font-bold text-brown-700 mb-1">
               Any Additional Questions / Notes <span className="text-brown-500 font-normal">(Optional)</span>
             </label>
             <textarea
+              id="enquiry-message"
               rows={3}
               placeholder="Mention any specific queries regarding transport, previous schooling, or fee structure..."
               value={formData.message}

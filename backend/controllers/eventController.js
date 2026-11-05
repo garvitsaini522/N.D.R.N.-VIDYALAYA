@@ -19,13 +19,20 @@ export async function getEvents(req, res, next) {
 
     const skip = (page - 1) * limit;
 
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       Event.find(query)
         .sort({ startDate: type === 'past' ? -1 : 1 })
         .skip(skip)
-        .limit(parseInt(limit, 10)),
+        .limit(parseInt(limit, 10))
+        .lean(),
       Event.countDocuments(query),
     ]);
+
+    const items = rawItems.map((e) => ({
+      ...e,
+      id: e.customId || e._id?.toString(),
+      date: e.startDate ? new Date(e.startDate).toISOString().split('T')[0] : '',
+    }));
 
     return ApiResponse.paginated(res, items, page, limit, total, 'Events fetched successfully');
   } catch (error) {
@@ -37,10 +44,15 @@ export async function getEventById(req, res, next) {
   try {
     const isMongoId = mongoose.Types.ObjectId.isValid(req.params.id);
     const query = isMongoId ? { _id: req.params.id } : { $or: [{ customId: req.params.id }, { id: req.params.id }] };
-    const event = await Event.findOne(query);
-    if (!event) {
+    const rawEvent = await Event.findOne(query).lean();
+    if (!rawEvent) {
       throw ApiError.notFound('Event not found');
     }
+    const event = {
+      ...rawEvent,
+      id: rawEvent.customId || rawEvent._id?.toString(),
+      date: rawEvent.startDate ? new Date(rawEvent.startDate).toISOString().split('T')[0] : '',
+    };
     return ApiResponse.success(res, event, 'Event retrieved');
   } catch (error) {
     next(error);

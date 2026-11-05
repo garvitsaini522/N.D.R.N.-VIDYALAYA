@@ -129,6 +129,7 @@ export default function SchoolLogo({
         <img
           src="/logo.png"
           alt="N.D.R.N. Vidyalaya Official Crest"
+          decoding="async"
           className="w-full h-full object-contain rounded-full"
           onError={(e) => {
             // In case of any load error, fallback gracefully to SVG logo
@@ -218,6 +219,8 @@ export default function SchoolLogo({
               <img
                 src="/logo.png"
                 alt="N.D.R.N. Vidyalaya Official Emblem"
+                loading="lazy"
+                decoding="async"
                 className="w-40 h-40 sm:w-48 sm:h-48 object-contain rounded-full aspect-square"
                 onError={(e) => {
                   e.currentTarget.src = '/logo.svg';

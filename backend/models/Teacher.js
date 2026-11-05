@@ -92,4 +92,6 @@ const teacherSchema = new mongoose.Schema(
   }
 );
 
+teacherSchema.index({ status: 1, wing: 1, fullName: 1 });
+
 export const Teacher = mongoose.model('Teacher', teacherSchema);

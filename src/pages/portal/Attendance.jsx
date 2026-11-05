@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   CalendarCheck2,
   CalendarDays,
@@ -25,6 +26,14 @@ import EmptyState from '../../components/common/EmptyState';
 
 export default function Attendance() {
   const { user } = useAuth();
+
+  // Attendance & Leave is not accessible in Parent Portal or Teacher Portal directly
+  if (user?.role === 'parent') {
+    return <Navigate to="/parent/dashboard" replace />;
+  }
+  if (user?.role === 'teacher') {
+    return <Navigate to="/teacher/attendance" replace />;
+  }
   const {
     currentStudent,
     availableWards,
@@ -263,7 +272,7 @@ export default function Attendance() {
                 Recent Daily Check-In History
               </h3>
               <p className="text-xs text-slate-500">
-                Official register records verified by Mrs. Priya Sharma • Daulatyarpur campus
+                Official register records verified by Class Teacher • Daulatyarpur campus
               </p>
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">

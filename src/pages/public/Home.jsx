@@ -266,6 +266,9 @@ I would like to connect regarding ${SCHOOL_CONFIG.name}.
                     <img
                       src="/logo.png"
                       alt="N.D.R.N. Vidyalaya Official Emblem"
+                      width="24"
+                      height="24"
+                      decoding="async"
                       className="w-6 h-6 object-contain rounded-full"
                     />
                     <span className="text-[11px] font-bold text-brown-800 tracking-wide">
@@ -278,6 +281,8 @@ I would like to connect regarding ${SCHOOL_CONFIG.name}.
                     <img
                       src={SCHOOL_CONFIG.images.heroImage}
                       alt={SCHOOL_CONFIG.name}
+                      fetchPriority="high"
+                      decoding="async"
                       className="w-full h-80 sm:h-[420px] object-cover object-top rounded-2xl"
                     />
                   ) : (
@@ -522,6 +527,10 @@ I would like to connect regarding ${SCHOOL_CONFIG.name}.
                     <img
                       src={SCHOOL_CONFIG.leadership.image}
                       alt={SCHOOL_CONFIG.leadership.name || 'D.K. Saini'}
+                      loading="lazy"
+                      decoding="async"
+                      width="128"
+                      height="128"
                       className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-2 border-cream-300 shadow-soft-sm"
                     />
                   ) : (
@@ -729,6 +738,8 @@ I would like to connect regarding ${SCHOOL_CONFIG.name}.
                       <img
                         src={item.image}
                         alt={item.title}
+                        loading="lazy"
+                        decoding="async"
                         className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     )}
@@ -793,6 +804,8 @@ I would like to connect regarding ${SCHOOL_CONFIG.name}.
                     <img
                       src={activeGalleryItem.image}
                       alt={activeGalleryItem.title}
+                      loading="lazy"
+                      decoding="async"
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                   )}

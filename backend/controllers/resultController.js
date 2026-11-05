@@ -14,7 +14,8 @@ export async function getResults(req, res, next) {
     const results = await Result.find(query)
       .populate('student', 'fullName admissionNumber rollNumber')
       .populate('class', 'name section')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return ApiResponse.success(res, results, 'Examination results retrieved');
   } catch (error) {

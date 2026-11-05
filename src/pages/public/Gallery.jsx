@@ -143,6 +143,7 @@ export default function Gallery() {
                         src={imgUrl}
                         alt={item.title}
                         loading="lazy"
+                        decoding="async"
                         className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
@@ -229,6 +230,8 @@ export default function Gallery() {
                   <img
                     src={activePhoto.imageUrl || activePhoto.url}
                     alt={activePhoto.title}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover max-h-[380px]"
                   />
                 ) : null}

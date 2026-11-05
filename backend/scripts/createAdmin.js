@@ -19,9 +19,14 @@ async function setupAdmin() {
   };
 
   const name = getArg('--name') || process.env.INITIAL_ADMIN_NAME || 'School Administrator';
-  const email = (getArg('--email') || process.env.INITIAL_ADMIN_EMAIL || 'ueyuwhw@gmail.com').toLowerCase().trim();
-  const password = getArg('--password') || process.env.INITIAL_ADMIN_PASSWORD || 'Admin@Ndrn2026';
-  const phone = getArg('--phone') || process.env.INITIAL_ADMIN_PHONE || '8429231617';
+  const email = (getArg('--email') || process.env.INITIAL_ADMIN_EMAIL || '').toLowerCase().trim();
+  const password = getArg('--password') || process.env.INITIAL_ADMIN_PASSWORD || '';
+  const phone = getArg('--phone') || process.env.INITIAL_ADMIN_PHONE || '';
+
+  if (!email || !password) {
+    console.error('Error: Administrator email and password must be provided via CLI arguments (--email, --password) or environment variables (INITIAL_ADMIN_EMAIL, INITIAL_ADMIN_PASSWORD).');
+    process.exit(1);
+  }
 
   console.log('Connecting to MongoDB database...');
   try {

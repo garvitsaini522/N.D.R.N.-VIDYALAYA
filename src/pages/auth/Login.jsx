@@ -7,19 +7,13 @@ import {
   ArrowLeft,
   ShieldCheck,
   ArrowRight,
-  KeyRound,
   GraduationCap,
   Briefcase,
-  AlertCircle,
-  Sparkles,
-  Zap,
-  Info,
-  Check
+  AlertCircle
 } from 'lucide-react';
 import SchoolLogo from '../../components/common/SchoolLogo';
 import Button from '../../components/common/Button';
 import { useAuth, getDashboardRoute } from '../../context/AuthContext';
-import { DEMO_ACCOUNTS } from '../../config/demoAccounts';
 
 export default function Login() {
   const [role, setRole] = useState('student'); // 'student', 'parent', 'teacher', 'admin'
@@ -27,46 +21,15 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [filledFeedback, setFilledFeedback] = useState(false);
 
-  const { login, loginAsDemoRole, error: authError, clearError } = useAuth();
+  const { login, error: authError, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const activeDemo = DEMO_ACCOUNTS[role];
 
   const handleRoleTabChange = (selectedRole) => {
     setRole(selectedRole);
     setFormError(null);
     clearError();
-    setFilledFeedback(false);
-  };
-
-  const handleAutoFillDemo = () => {
-    if (activeDemo) {
-      setIdentifier(activeDemo.email);
-      setPassword(activeDemo.password);
-      setFormError(null);
-      clearError();
-      setFilledFeedback(true);
-      setTimeout(() => setFilledFeedback(false), 2500);
-    }
-  };
-
-  const handleQuickDemoEnter = async () => {
-    setFormError(null);
-    clearError();
-    setIsSubmitting(true);
-    const result = loginAsDemoRole(role);
-    setIsSubmitting(false);
-
-    if (result.success) {
-      const fromPath = location.state?.from?.pathname;
-      const targetPath = fromPath || result.redirectTo || getDashboardRoute(role);
-      navigate(targetPath, { replace: true });
-    } else {
-      setFormError(result.error || 'Failed to initialize demo session');
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -175,74 +138,7 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Prominent Demo Credentials Card for the Active Role */}
-        {activeDemo && (
-          <div className="mb-5 p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-cream-100 border border-amber-200/90 shadow-2xs">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs font-black text-amber-900 uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-amber-600" />
-                <span>Demo Access Credentials ({role.toUpperCase()})</span>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
-                Offline Mode • No DB Required
-              </span>
-            </div>
 
-            <div className="bg-white/80 p-3 rounded-xl border border-amber-200/60 text-xs space-y-1 mb-3">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Account:</span>
-                <span className="font-bold text-slate-900">{activeDemo.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Login ID / Email:</span>
-                <code className="font-mono font-bold text-school-800 bg-school-50 px-1.5 py-0.5 rounded">
-                  {activeDemo.email}
-                </code>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Password:</span>
-                <code className="font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded">
-                  {activeDemo.password}
-                </code>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleAutoFillDemo}
-                className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {filledFeedback ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Credentials Filled!</span>
-                  </>
-                ) : (
-                  <>
-                    <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Auto-Fill Credentials</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleQuickDemoEnter}
-                disabled={isSubmitting}
-                className="flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>1-Click Demo Login</span>
-              </button>
-            </div>
-
-            <p className="text-[10px] text-amber-800/80 mt-2 leading-relaxed flex items-center gap-1">
-              <Info className="w-3 h-3 shrink-0" />
-              <span>Temporary demo session with realistic sample data. Production MongoDB code remains intact.</span>
-            </p>
-          </div>
-        )}
 
         {/* Error Alert Banner */}
         {(formError || authError) && (

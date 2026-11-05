@@ -32,15 +32,19 @@ export default function Modal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
       onClick={onClose}
+      role="presentation"
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? 'modal-title' : undefined}
         className={`bg-white rounded-3xl w-full ${maxWidth} p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8 max-h-[90vh] flex flex-col animate-in zoom-in-95`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-slate-100 shrink-0">
           <div>
-            <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            <h3 id="modal-title" className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               {title}
             </h3>
             {subtitle && (

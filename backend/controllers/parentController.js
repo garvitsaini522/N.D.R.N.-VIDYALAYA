@@ -23,7 +23,8 @@ export async function getParents(req, res, next) {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit, 10))
-        .populate('students', 'fullName admissionNumber class section'),
+        .populate('students', 'fullName admissionNumber class section')
+        .lean(),
       Parent.countDocuments(query),
     ]);
 
@@ -40,9 +41,11 @@ export async function getParentById(req, res, next) {
       ? await Parent.findOne({ user: req.user.id })
           .populate('students')
           .populate('user', 'email role lastLogin')
+          .lean()
       : await Parent.findById(req.params.id)
           .populate('students')
-          .populate('user', 'email role lastLogin');
+          .populate('user', 'email role lastLogin')
+          .lean();
 
     if (!parent) {
       throw ApiError.notFound('Parent record not found');

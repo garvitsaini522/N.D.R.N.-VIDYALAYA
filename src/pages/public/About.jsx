@@ -125,6 +125,10 @@ I am visiting the About section of the ${SCHOOL_CONFIG.name} website and would l
               <img
                 src="/logo.png"
                 alt="N.D.R.N. Vidyalaya Official Emblem"
+                loading="lazy"
+                decoding="async"
+                width="80"
+                height="80"
                 className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-xl"
               />
             </div>
@@ -192,7 +196,11 @@ I am visiting the About section of the ${SCHOOL_CONFIG.name} website and would l
               {SCHOOL_CONFIG.leadership.image ? (
                 <img
                   src={SCHOOL_CONFIG.leadership.image}
-                  alt={SCHOOL_CONFIG.leadership.namePlaceholder}
+                  alt={SCHOOL_CONFIG.leadership.namePlaceholder || 'Principal'}
+                  loading="lazy"
+                  decoding="async"
+                  width="128"
+                  height="128"
                   className="w-32 h-32 rounded-2xl object-cover border-2 border-cream-300 shadow-soft-md mb-4"
                 />
               ) : (

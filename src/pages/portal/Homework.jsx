@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   BookOpenCheck,
   CheckCircle2,
@@ -26,6 +27,14 @@ import EmptyState from '../../components/common/EmptyState';
 
 export default function Homework() {
   const { user } = useAuth();
+
+  // Homework is not accessible in Student Portal directly
+  if (user?.role === 'student') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
+  if (user?.role === 'teacher') {
+    return <Navigate to="/teacher/dashboard" replace />;
+  }
   const {
     currentStudent,
     availableWards,

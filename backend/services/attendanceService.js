@@ -50,7 +50,7 @@ export class AttendanceService {
       };
     }
 
-    const records = await Attendance.find(query).sort({ date: -1 });
+    const records = await Attendance.find(query).sort({ date: -1 }).lean();
 
     const totalDays = records.length;
     const presentDays = records.filter((r) => r.status === 'present').length;

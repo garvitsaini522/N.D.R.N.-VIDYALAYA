@@ -46,7 +46,7 @@ export class FeeService {
    * Get student fee ledger
    */
   static async getStudentLedger(studentId) {
-    const fees = await Fee.find({ student: studentId }).sort({ dueDate: 1 });
+    const fees = await Fee.find({ student: studentId }).sort({ dueDate: 1 }).lean();
 
     const totalBilled = fees.reduce((acc, f) => acc + (f.amount || 0), 0);
     const totalPaid = fees.reduce((acc, f) => acc + (f.paidAmount || 0), 0);

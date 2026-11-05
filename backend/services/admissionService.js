@@ -53,7 +53,7 @@ export class AdmissionService {
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-      Admission.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Admission.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Admission.countDocuments(query),
     ]);
 

@@ -40,7 +40,8 @@ export async function getClassAttendance(req, res, next) {
 
     const records = await Attendance.find({ class: classId, date: queryDate })
       .populate('student', 'fullName admissionNumber rollNumber')
-      .sort({ 'student.rollNumber': 1 });
+      .sort({ 'student.rollNumber': 1 })
+      .lean();
 
     return ApiResponse.success(res, records, 'Class attendance list retrieved');
   } catch (error) {

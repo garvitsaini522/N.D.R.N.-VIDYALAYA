@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   CalendarDays,
   Clock,
@@ -20,6 +21,14 @@ import EmptyState from '../../components/common/EmptyState';
 
 export default function Timetable() {
   const { user } = useAuth();
+
+  // Class Timetable is not accessible in Parent Portal directly
+  if (user?.role === 'parent') {
+    return <Navigate to="/parent/dashboard" replace />;
+  }
+  if (user?.role === 'teacher') {
+    return <Navigate to="/teacher/timetable" replace />;
+  }
   const {
     currentStudent,
     availableWards,

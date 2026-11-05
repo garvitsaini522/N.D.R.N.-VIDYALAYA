@@ -51,6 +51,7 @@ const parentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       sparse: true,
+      index: true,
     },
     address: {
       street: { type: String, trim: true },

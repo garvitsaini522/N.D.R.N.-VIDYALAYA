@@ -12,7 +12,8 @@ export async function getTimetable(req, res, next) {
 
     const schedule = await Timetable.find(query)
       .populate('periods.teacher', 'fullName email')
-      .sort({ dayOfWeek: 1 });
+      .sort({ dayOfWeek: 1 })
+      .lean();
 
     return ApiResponse.success(res, schedule, 'Class timetable schedule retrieved');
   } catch (error) {

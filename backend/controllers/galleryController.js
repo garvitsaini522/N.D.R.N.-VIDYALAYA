@@ -17,7 +17,8 @@ export async function getGallery(req, res, next) {
       Gallery.find(query)
         .sort({ isFeatured: -1, createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit, 10)),
+        .limit(parseInt(limit, 10))
+        .lean(),
       Gallery.countDocuments(query),
     ]);
 
