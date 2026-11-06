@@ -20,6 +20,7 @@ import {
   UserPlus,
   BookOpen
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { useSchoolSettings } from '../../context/SchoolSettingsContext';
 import { Card } from '../../components/common/Card';
@@ -36,15 +37,40 @@ export default function AdminDashboard() {
   const [classes, setClasses] = useState([]);
 
   useEffect(() => {
-    const refreshDashboard = () => {
-      setStudents(DataService.getStudents());
-      setTeachers(DataService.getTeachers());
-      setNotices(DataService.getNotices());
-      setEvents(DataService.getEvents());
-      setAdmissions(DataService.getAdmissions());
-      setMessages(DataService.getContacts());
-      setActivities(DataService.getActivities());
-      setClasses(DataService.getClasses());
+    let isMounted = true;
+    const refreshDashboard = async () => {
+      try {
+        const [stList, tcList, ntList, evList, admList, msgList, clsList] = await Promise.all([
+          api.getStudents(),
+          api.getTeachers(),
+          api.getNotices(),
+          api.getEvents(),
+          api.getAdmissions(),
+          api.getContactMessages(),
+          api.getClasses(),
+        ]);
+        if (isMounted) {
+          setStudents(Array.isArray(stList) ? stList : []);
+          setTeachers(Array.isArray(tcList) ? tcList : []);
+          setNotices(Array.isArray(ntList) ? ntList : []);
+          setEvents(Array.isArray(evList) ? evList : []);
+          setAdmissions(Array.isArray(admList) ? admList : []);
+          setMessages(Array.isArray(msgList) ? msgList : []);
+          setClasses(Array.isArray(clsList) ? clsList : []);
+          setActivities(DataService.getActivities());
+        }
+      } catch {
+        if (isMounted) {
+          setStudents(DataService.getStudents());
+          setTeachers(DataService.getTeachers());
+          setNotices(DataService.getNotices());
+          setEvents(DataService.getEvents());
+          setAdmissions(DataService.getAdmissions());
+          setMessages(DataService.getContacts());
+          setActivities(DataService.getActivities());
+          setClasses(DataService.getClasses());
+        }
+      }
     };
 
     refreshDashboard();
@@ -56,6 +82,7 @@ export default function AdminDashboard() {
     window.addEventListener('storage', refreshDashboard);
 
     return () => {
+      isMounted = false;
       window.removeEventListener('ndrn:admissions-updated', refreshDashboard);
       window.removeEventListener('ndrn:notices-updated', refreshDashboard);
       window.removeEventListener('ndrn:events-updated', refreshDashboard);

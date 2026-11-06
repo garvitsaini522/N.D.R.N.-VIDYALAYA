@@ -282,7 +282,7 @@ To establish the initial school administrator account in production:
 
 From the `backend/` directory:
 ```bash
-node scripts/createAdmin.js --name "School Principal" --email "ueyuwhw@gmail.com" --password "YourStrongPassword123!" --phone "8429231617"
+node scripts/createAdmin.js --name "School Principal" --email "<YOUR_ADMIN_EMAIL>" --password "<YOUR_STRONG_PASSWORD>" --phone "8429231617"
 ```
 Or via root convenience command:
 ```bash
@@ -299,8 +299,8 @@ curl -X POST https://api.ndrnvidyalaya.edu.in/api/auth/register \
   -H "x-admin-setup-key: YOUR_CONFIGURED_ADMIN_SETUP_KEY" \
   -d '{
     "name": "School Administrator",
-    "email": "ueyuwhw@gmail.com",
-    "password": "YourStrongPassword123!",
+    "email": "<YOUR_ADMIN_EMAIL>",
+    "password": "<YOUR_STRONG_PASSWORD>",
     "phone": "8429231617",
     "role": "admin"
   }'

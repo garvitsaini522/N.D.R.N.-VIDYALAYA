@@ -15,8 +15,11 @@ import {
   Eye,
   Bus,
   RefreshCw,
-  Building
+  Building,
+  AlertCircle,
+  X
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -57,6 +60,8 @@ const INITIAL_FORM_STATE = {
 
 export default function AdminStudents() {
   const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [classFilter, setClassFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -69,10 +74,19 @@ export default function AdminStudents() {
   const [viewStudentModal, setViewStudentModal] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
-  const loadStudents = () => {
-    setStudents(DataService.getStudents());
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getStudents();
+      setStudents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to load students from database.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -86,8 +100,8 @@ export default function AdminStudents() {
     const q = searchQuery.toLowerCase().trim();
     const matchSearch =
       !q ||
-      s.name.toLowerCase().includes(q) ||
-      s.id.toLowerCase().includes(q) ||
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.id && s.id.toLowerCase().includes(q)) ||
       (s.rollNo && s.rollNo.toString().includes(q)) ||
       (s.parentName && s.parentName.toLowerCase().includes(q)) ||
       (s.parentPhone && s.parentPhone.includes(q));
@@ -131,35 +145,59 @@ export default function AdminStudents() {
     setModalOpen(true);
   };
 
-  const handleSaveStudent = (e) => {
+  const handleSaveStudent = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.parentName.trim() || !form.parentPhone.trim()) {
       return;
     }
 
-    if (editingStudent) {
-      DataService.updateStudent(editingStudent.id, form);
-    } else {
-      DataService.addStudent(form);
-    }
+    setIsSaving(true);
+    try {
+      if (editingStudent) {
+        await api.updateStudent(editingStudent.id || editingStudent._id, form);
+        setNotification({ type: 'success', message: `Student '${form.name}' updated successfully in MongoDB.` });
+      } else {
+        await api.createStudent(form);
+        setNotification({ type: 'success', message: `Student '${form.name}' enrolled successfully into official registry.` });
+      }
 
-    loadStudents();
-    setModalOpen(false);
+      await loadStudents();
+      setModalOpen(false);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Database error: Could not save student records.' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setNotification(null), 4000);
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (studentToDelete) {
-      DataService.deleteStudent(studentToDelete.id);
-      loadStudents();
-      setDeleteConfirmOpen(false);
-      setStudentToDelete(null);
+      try {
+        await api.deleteStudent(studentToDelete.id || studentToDelete._id);
+        setNotification({ type: 'success', message: `Student '${studentToDelete.name}' deleted successfully.` });
+        await loadStudents();
+      } catch (err) {
+        setNotification({ type: 'error', message: err.message || 'Failed to delete student from database.' });
+      } finally {
+        setDeleteConfirmOpen(false);
+        setStudentToDelete(null);
+        setTimeout(() => setNotification(null), 4000);
+      }
     }
   };
 
-  const handleToggleStatus = (student) => {
+  const handleToggleStatus = async (student) => {
     const nextStatus = student.status === 'Active' ? 'Inactive' : 'Active';
-    DataService.updateStudent(student.id, { status: nextStatus });
-    loadStudents();
+    try {
+      await api.updateStudent(student.id || student._id, { status: nextStatus });
+      await loadStudents();
+      setNotification({ type: 'success', message: `Status for '${student.name}' set to ${nextStatus}.` });
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to update student status.' });
+    } finally {
+      setTimeout(() => setNotification(null), 3000);
+    }
   };
 
   return (
@@ -190,6 +228,32 @@ export default function AdminStudents() {
           </Button>
         </div>
       </div>
+
+      {notification && (
+        <div
+          className={`p-3.5 rounded-xl border text-xs sm:text-sm flex items-center justify-between shadow-2xs animate-in fade-in ${
+            notification.type === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            className="text-slate-400 hover:text-slate-600 ml-3"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <Card className="p-4 bg-white border border-slate-200">

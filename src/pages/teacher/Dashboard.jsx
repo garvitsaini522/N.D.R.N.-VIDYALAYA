@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { Card } from '../../components/common/Card';
 
@@ -23,15 +24,37 @@ export default function TeacherDashboard() {
   const [selectedClass, setSelectedClass] = useState('Class 5');
 
   useEffect(() => {
-    const clsList = DataService.getClasses();
-    const stList = DataService.getStudents();
-
-    setClasses(clsList);
-    setStudents(stList);
-
-    if (clsList.length > 0) {
-      setSelectedClass(clsList[0].name);
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [clsList, stList] = await Promise.all([
+          api.getClasses(),
+          api.getStudents(),
+        ]);
+        if (isMounted) {
+          const validClasses = Array.isArray(clsList) ? clsList : [];
+          setClasses(validClasses);
+          setStudents(Array.isArray(stList) ? stList : []);
+          if (validClasses.length > 0) {
+            setSelectedClass(validClasses[0].name);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          const clsList = DataService.getClasses();
+          const stList = DataService.getStudents();
+          setClasses(clsList);
+          setStudents(stList);
+          if (clsList.length > 0) {
+            setSelectedClass(clsList[0].name);
+          }
+        }
+      }
     }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const totalStudents = students.length;

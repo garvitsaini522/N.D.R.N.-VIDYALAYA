@@ -1,87 +1,53 @@
 /**
  * Authentication API Service
  * Handles communication with the Node.js/Express backend authentication endpoints.
+ * Uses centralized apiConfig for environment-aware API URL and robust error handling.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { apiFetch } from './apiConfig';
 
 export const authApi = {
   /**
    * Login with identifier (email, phone, or ID) and password
    */
   async login(identifier, password) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ identifier, password }),
-      });
+    const data = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed. Please check your credentials.');
-      }
-
-      return data.data; // { token, user }
-    } catch (error) {
-      throw error;
-    }
+    return data.data; // { token, user }
   },
 
   /**
    * Get current authenticated user profile
    */
   async getMe(token) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const data = await apiFetch('/auth/me', {
+      method: 'GET',
+      headers,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to authenticate session token');
-      }
-
-      return data.data; // user profile
-    } catch (error) {
-      throw error;
-    }
+    return data.data; // user profile
   },
 
   /**
    * Register a new user account
    */
   async register(userData, adminSetupKey = null) {
-    try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (adminSetupKey) {
-        headers['x-admin-setup-key'] = adminSetupKey;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(userData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      return data.data;
-    } catch (error) {
-      throw error;
+    const headers = {};
+    if (adminSetupKey) {
+      headers['x-admin-setup-key'] = adminSetupKey;
     }
+
+    const data = await apiFetch('/auth/register', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(userData),
+    });
+
+    return data.data;
   },
 
   /**
@@ -91,11 +57,10 @@ export const authApi = {
     try {
       if (!token) return;
 
-      await fetch(`${API_BASE_URL}/auth/logout`, {
+      await apiFetch('/auth/logout', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
       });
     } catch (error) {

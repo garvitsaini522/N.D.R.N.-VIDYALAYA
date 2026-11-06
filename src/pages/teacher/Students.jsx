@@ -16,6 +16,7 @@ import {
   Sparkles,
   School
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -39,8 +40,19 @@ export default function TeacherStudents() {
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   useEffect(() => {
-    const allStudents = DataService.getStudents();
-    setStudents(allStudents);
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const data = await api.getStudents();
+        if (isMounted) setStudents(Array.isArray(data) ? data : []);
+      } catch {
+        if (isMounted) setStudents(DataService.getStudents());
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const filteredStudents = students.filter((s) => {

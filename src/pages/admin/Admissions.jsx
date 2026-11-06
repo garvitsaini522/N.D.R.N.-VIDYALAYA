@@ -66,7 +66,13 @@ export default function AdminAdmissions() {
   }, []);
 
   const filtered = admissions.filter((item) => {
-    const matchStatus = filterStatus === 'All' || item.status === filterStatus;
+    const status = (item.status || '').toLowerCase();
+    const filter = filterStatus.toLowerCase();
+    const matchStatus =
+      filterStatus === 'All' ||
+      status === filter ||
+      (filter === 'received' && (status === 'new' || status === 'received')) ||
+      (filter === 'new' && (status === 'new' || status === 'received'));
     const q = searchQuery.toLowerCase().trim();
     const idStr = String(item.id || item._id || item.enquiryNumber || '').toLowerCase();
     const matchSearch =
@@ -85,24 +91,32 @@ export default function AdminAdmissions() {
     e.preventDefault();
     if (!selectedApp) return;
 
-    const targetId = selectedApp.id || selectedApp._id;
-    await api.updateAdmissionStatus(
-      targetId,
-      newStatus || selectedApp.status,
-      statusNote || selectedApp.notes
-    );
+    try {
+      const targetId = selectedApp._id || selectedApp.id;
+      await api.updateAdmissionStatus(
+        targetId,
+        newStatus || selectedApp.status,
+        statusNote || selectedApp.notes
+      );
 
-    await loadAdmissions();
-    setSelectedApp(null);
+      await loadAdmissions();
+      setSelectedApp(null);
+    } catch (err) {
+      alert(err.message || 'Failed to update admission status in database.');
+    }
   };
 
   const handleConfirmDelete = async () => {
     if (appToDelete) {
-      const targetId = appToDelete.id || appToDelete._id;
-      await api.deleteAdmission(targetId);
-      await loadAdmissions();
-      setDeleteConfirmOpen(false);
-      setAppToDelete(null);
+      try {
+        const targetId = appToDelete._id || appToDelete.id;
+        await api.deleteAdmission(targetId);
+        await loadAdmissions();
+        setDeleteConfirmOpen(false);
+        setAppToDelete(null);
+      } catch (err) {
+        alert(err.message || 'Failed to delete admission from database.');
+      }
     }
   };
 
@@ -153,7 +167,8 @@ export default function AdminAdmissions() {
               className="text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-school-600"
             >
               <option value="All">All Inquiries ({admissions.length})</option>
-              <option value="New">New Inquiries</option>
+              <option value="Received">Received / New</option>
+              <option value="Under Review">Under Review</option>
               <option value="Verified">Verified Candidates</option>
               <option value="Admitted">Admitted</option>
               <option value="Rejected">Rejected</option>
@@ -213,11 +228,13 @@ export default function AdminAdmissions() {
                     <td className="p-3.5">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.status === 'New'
+                          item.status === 'Received' || item.status === 'New' || item.status === 'new'
                             ? 'bg-amber-100 text-amber-800'
-                            : item.status === 'Verified'
+                            : item.status === 'Under Review' || item.status === 'under_review' || item.status === 'Pending' || item.status === 'pending'
+                            ? 'bg-blue-100 text-blue-800'
+                            : item.status === 'Verified' || item.status === 'verified'
                             ? 'bg-gold-100 text-gold-800'
-                            : item.status === 'Admitted'
+                            : item.status === 'Admitted' || item.status === 'admitted'
                             ? 'bg-emerald-100 text-emerald-800'
                             : 'bg-rose-100 text-rose-800'
                         }`}
@@ -319,7 +336,7 @@ export default function AdminAdmissions() {
                 onChange={(e) => setNewStatus(e.target.value)}
                 className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-school-600 font-bold"
               >
-                <option value="New">New (Pending Review)</option>
+                <option value="Received">Received (Recorded in Database)</option>
                 <option value="Under Review">Under Review</option>
                 <option value="Verified">Verified (Documents Checked)</option>
                 <option value="Admitted">Admitted (Seat Confirmed)</option>

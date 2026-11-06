@@ -14,24 +14,36 @@ export const helmetMiddleware = helmet({
 
 /**
  * CORS middleware configuration
+ * Restricts cross-origin requests strictly to explicitly configured frontend origins.
  */
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    // Allow requests with no origin (mobile apps, curl, server-to-server health checks)
     if (!origin) return callback(null, true);
 
-    if (
-      config.cors.origin.includes('*') ||
-      config.cors.origin.includes(origin) ||
-      config.env !== 'production'
-    ) {
+    const allowedOrigins = config.cors.origin;
+
+    // Check if origin is explicitly in the configured whitelist
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
+
+    // In local development mode only, permit localhost origins
+    if (config.env !== 'production') {
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      if (isLocalhost) {
+        return callback(null, true);
+      }
+    }
+
+    return callback(
+      new Error(`CORS blocked for origin: ${origin}. Origin is not in the authorized whitelist.`)
+    );
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-admin-setup-key'],
+  maxAge: 86400,
 });
 
 /**

@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle, AlertCircle, MessageCircle, Mail } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
 import Button from './Button';
 import { api } from '../../services/api';
-import { SCHOOL_CONFIG } from '../../config/schoolConfig';
-
-const PRINCIPAL_WHATSAPP_NUMBER = '918429231617';
-const PRINCIPAL_WHATSAPP_DISPLAY = '+91 8429231617';
-const PRINCIPAL_EMAIL = 'ueyuwhw@gmail.com';
+import { SCHOOL_CONFIG, getPrincipalWhatsAppDestination } from '../../config/schoolConfig';
 
 /**
  * Reusable Admission Enquiry Form Component
  * Encapsulates form fields, validation, API submission, and success handling.
- * Dispatches enquiry details to Principal's WhatsApp (+91 8429231617) and Email (ueyuwhw@gmail.com).
+ * Directs enquiry data securely to the school database.
+ * Provides voluntary Principal WhatsApp connect with pre-filled enquiry reference.
  * Used by Admissions page and the About section popup modal.
  */
 export default function AdmissionEnquiryForm({
@@ -42,6 +39,8 @@ export default function AdmissionEnquiryForm({
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [refNumber, setRefNumber] = useState('');
+
+  const principalWhatsApp = getPrincipalWhatsAppDestination();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,12 +86,11 @@ export default function AdmissionEnquiryForm({
         message: formData.message.trim() || 'General Admission Enquiry',
       });
 
-      const assignedRef = res?.data?.enquiryNumber || res?.data?.id || `ADM-2026-${Date.now().toString().slice(-4)}`;
+      const assignedRef = res?.data?.enquiryNumber || res?.data?.id;
+      if (!assignedRef) {
+        throw new Error('Admission enquiry registered, but reference number was not returned.');
+      }
       setRefNumber(assignedRef);
-
-      // Enquiry details are automatically delivered in the background to the principal's
-      // WhatsApp (+91 8429231617) and Email (ueyuwhw@gmail.com).
-      // Keep the visitor on the current page without opening external applications or new pages.
       setIsSubmitted(true);
       if (onSuccess) onSuccess(assignedRef);
     } catch (err) {
@@ -115,6 +113,10 @@ export default function AdmissionEnquiryForm({
       message: '',
     });
   };
+
+  const whatsappConnectUrl = `https://wa.me/${principalWhatsApp}?text=${encodeURIComponent(
+    `Namaste Principal / Director Sir/Madam,\n\nI have submitted an admission enquiry for ${SCHOOL_CONFIG.name}.\n• Reference ID: ${refNumber}\n• Candidate: ${formData.studentName}\n• Grade Applying: ${formData.gradeApplying}\n• Guardian: ${formData.parentName}\n• Contact Number: ${formData.phone}\n\nPlease guide us on the admission process.\n(Submitted via N.D.R.N. Vidyalaya Admissions Portal)`
+  )}`;
 
   return (
     <div>
@@ -142,36 +144,35 @@ export default function AdmissionEnquiryForm({
           <div className="w-14 h-14 rounded-full bg-cream-100 text-emerald-600 flex items-center justify-center mx-auto border border-gold-300">
             <CheckCircle className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-brown-800">Enquiry Submitted Successfully!</h3>
+          <h3 className="text-xl font-bold text-brown-800">Enquiry Received Successfully!</h3>
           {refNumber && (
             <div className="inline-block px-3 py-1 bg-white rounded-lg border border-gold-400 text-brown-800 font-mono text-xs font-bold shadow-xs">
               Reference ID: {refNumber}
             </div>
           )}
 
-          {/* Automatic Background Delivery Confirmation */}
+          {/* Transparent Status Confirmation (No Fake Delivery) */}
           <div className="p-4 rounded-xl bg-white/95 border border-gold-300/80 text-left space-y-2 text-xs text-brown-800 shadow-xs">
             <div className="flex items-center gap-2 font-bold text-brown-900 border-b border-cream-200 pb-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Enquiry Details Automatically Sent:</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>Enquiry Status: Recorded in School Database (Status: Received)</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px] sm:text-xs">
-              <div className="flex items-center gap-1.5 text-brown-700">
-                <MessageCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Principal's WhatsApp: <strong className="text-brown-900 font-semibold">{PRINCIPAL_WHATSAPP_DISPLAY}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5 text-brown-700">
-                <Mail className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
-                <span>Principal's Email: <strong className="text-brown-900 font-semibold break-all">{PRINCIPAL_EMAIL}</strong></span>
-              </div>
-            </div>
+            <p className="text-[11px] sm:text-xs text-brown-700 leading-relaxed pt-0.5">
+              Thank you for your interest in <strong>{SCHOOL_CONFIG.name}</strong>. Your enquiry for <strong>{formData.gradeApplying}</strong> has been logged on the school admissions server. Our administrative desk in Daulatyarpur, Madhoganj will review the details and contact you on <strong>{formData.phone}</strong>.
+            </p>
           </div>
 
-          <p className="text-xs sm:text-sm text-brown-700 max-w-md mx-auto leading-relaxed">
-            Thank you for your interest in <strong>{SCHOOL_CONFIG.name}</strong>. Your enquiry for <strong>{formData.gradeApplying}</strong> has been registered and forwarded to the principal's office. Our team in Daulatyarpur, Madhoganj will reach out on <strong>{formData.phone}</strong>.
-          </p>
-
-          <div className="pt-2">
+          {/* Voluntary Direct Principal WhatsApp Connect */}
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href={whatsappConnectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+            >
+              <MessageCircle className="w-4 h-4 shrink-0" />
+              <span>Connect via WhatsApp (Optional)</span>
+            </a>
             <Button
               variant="outline"
               size="sm"

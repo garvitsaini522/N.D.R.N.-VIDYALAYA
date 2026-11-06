@@ -7,10 +7,13 @@
     "dev": "vite",
     "dev:backend": "cd backend && npm run dev",
     "start:backend": "cd backend && npm start",
+    "test": "npm run test:backend",
     "test:backend": "cd backend && npm test",
+    "lint": "node scripts/lintCheck.js",
     "setup:admin": "cd backend && npm run setup:admin",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate": "npm run lint && npm run build && npm test"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

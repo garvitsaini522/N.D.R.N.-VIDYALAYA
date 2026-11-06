@@ -87,7 +87,7 @@ export default function Login() {
             Institutional Sign In
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Sign in to access your portal, or use temporary offline demo credentials for evaluation.
+            Sign in with your verified institutional credentials to access your portal.
           </p>
         </div>
 

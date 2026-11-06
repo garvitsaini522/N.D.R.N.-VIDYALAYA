@@ -1,10 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import request from 'supertest';
 import app from '../app.js';
 import { config } from '../config/env.js';
 import { AuthService } from '../services/authService.js';
+import { User } from '../models/User.js';
 
 describe('Secure Authentication & Role-Based Authorization Test Suite', () => {
   // Helpers to generate test JWTs
@@ -56,11 +58,57 @@ describe('Secure Authentication & Role-Based Authorization Test Suite', () => {
     );
   });
 
-  it('Allows ADMIN account creation when valid adminSetupKey is supplied', async () => {
-    // We test the role resolution logic in createUser
-    const requestedRole = 'admin';
-    const hasValidBootstrapKey = config.adminSetupKey === config.adminSetupKey;
-    assert.strictEqual(hasValidBootstrapKey, true, 'Bootstrap key must authorize controlled admin creation');
+  it('Rejects ADMIN account creation when setupKey is invalid (403 Forbidden)', async () => {
+    await assert.rejects(
+      async () => {
+        await AuthService.createUser(
+          {
+            name: 'Unauthorized Admin',
+            email: 'fake.admin@ndrn.edu.in',
+            password: 'password123',
+            role: 'admin',
+          },
+          null,
+          'invalid_setup_key_attempt_999'
+        );
+      },
+      (err) => {
+        assert.strictEqual(err.statusCode, 403);
+        assert.ok(err.message.includes('Public registration for administrator accounts is not permitted'));
+        return true;
+      }
+    );
+  });
+
+  it('Allows ADMIN account creation when authentic adminSetupKey is supplied', async () => {
+    const origFindOne = User.findOne;
+    const origCreate = User.create;
+    try {
+      User.findOne = async () => null;
+      let createdUserDoc = null;
+      User.create = async (doc) => {
+        createdUserDoc = { ...doc, _id: new mongoose.Types.ObjectId() };
+        return createdUserDoc;
+      };
+
+      const result = await AuthService.createUser(
+        {
+          name: 'Bootstrap Admin Officer',
+          email: 'bootstrap.admin@ndrn.edu.in',
+          password: 'securePassword123!',
+          role: 'admin',
+        },
+        null,
+        config.adminSetupKey
+      );
+
+      assert.strictEqual(result.role, 'admin');
+      assert.strictEqual(createdUserDoc.role, 'admin');
+      assert.strictEqual(createdUserDoc.email, 'bootstrap.admin@ndrn.edu.in');
+    } finally {
+      User.findOne = origFindOne;
+      User.create = origCreate;
+    }
   });
 
   it('Rejects requests with missing Authorization header on protected routes (401)', async () => {

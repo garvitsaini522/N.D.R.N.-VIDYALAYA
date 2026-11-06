@@ -4,6 +4,16 @@ import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
 /**
+ * Redact sensitive secrets from error messages before responding
+ */
+function sanitizeErrorMessage(msg) {
+  if (typeof msg !== 'string') return 'An error occurred';
+  return msg
+    .replace(/mongodb(\+srv)?:\/\/[^\s]+/gi, '[REDACTED_DATABASE_URI]')
+    .replace(/(jwt[_-]?secret|admin[_-]?setup[_-]?key|password)=([^\s&]+)/gi, '$1=[REDACTED]');
+}
+
+/**
  * 404 Route Not Found middleware
  */
 export function notFoundHandler(req, res, next) {
@@ -18,9 +28,11 @@ export function errorHandler(err, req, res, next) {
   let message = err.message || 'Internal Server Error';
   let errors = err.errors || null;
 
-  // Log error with details
+  const isProduction = config.env === 'production' || process.env.NODE_ENV === 'production';
+
+  // Log error with details internally (preserving stack in server logs only)
   logger.error(`[${req.method}] ${req.originalUrl} Error: ${err.message}`, {
-    stack: config.env === 'development' ? err.stack : undefined,
+    stack: !isProduction ? err.stack : undefined,
   });
 
   // Handle Mongoose Validation Error
@@ -44,7 +56,7 @@ export function errorHandler(err, req, res, next) {
   // Handle Mongoose CastError (e.g. invalid ObjectId)
   if (err.name === 'CastError') {
     statusCode = 400;
-    message = `Invalid format for field '${err.path}': '${err.value}'`;
+    message = `Invalid format for field '${err.path}'`;
   }
 
   // Handle JWT Errors
@@ -62,6 +74,13 @@ export function errorHandler(err, req, res, next) {
     message = 'Malformed JSON in request body';
   }
 
+  // In production, mask internal server 500 details to prevent leaking implementation internals
+  if (isProduction && statusCode === 500) {
+    message = 'An unexpected internal server error occurred. Please contact system administration.';
+  } else {
+    message = sanitizeErrorMessage(message);
+  }
+
   // Return standardized response
   const responsePayload = {
     success: false,
@@ -72,7 +91,8 @@ export function errorHandler(err, req, res, next) {
     responsePayload.errors = errors;
   }
 
-  if (config.env === 'development' && statusCode === 500) {
+  // Never expose stack trace in production or test environments
+  if (!isProduction && config.env === 'development' && statusCode === 500) {
     responsePayload.stack = err.stack;
   }
 

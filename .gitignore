@@ -2,17 +2,55 @@
 node_modules/
 backend/node_modules/
 
-# Environment Variables & Credentials
+# Environment Variables & Secrets (Root & Backend)
 .env
+.env.production
+.env.development
+.env.staging
+.env.test
 .env.local
-.env.*.local
+.env.*
+!.env.example
+*.env
+*.env.*
+!*.env.example
+
 backend/.env
+backend/.env.production
+backend/.env.development
+backend/.env.staging
+backend/.env.test
 backend/.env.local
+backend/.env.*
+!backend/.env.example
+
+# Local Overrides & Backups
+*.local
+*.env.local
+*.env.*.local
+*.backup
+*.bak
+
+# Cryptographic Keys, Certificates & Tokens
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.pkcs12
+id_rsa
+id_ed25519
+
+# Service Accounts & Cloud Credentials
+credentials.json
+client_secret*.json
+service-account*.json
+firebase-adminsdk*.json
 
 # Production Build Output
 dist/
 dist-ssr/
-*.local
 
 # Logs
 npm-debug.log*

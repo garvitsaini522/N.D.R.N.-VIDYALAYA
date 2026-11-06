@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Event } from '../models/Event.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
+import { escapeRegex } from '../utils/privacySanitizer.js';
 
 export async function getEvents(req, res, next) {
   try {
@@ -13,7 +14,7 @@ export async function getEvents(req, res, next) {
     }
 
     if (category && category !== 'All' && category !== 'all') {
-      const cleanCat = category.replace(/s$/i, '');
+      const cleanCat = escapeRegex(category.replace(/s$/i, ''));
       query.category = new RegExp(cleanCat, 'i');
     }
 

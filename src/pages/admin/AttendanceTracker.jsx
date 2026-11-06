@@ -6,89 +6,190 @@ import {
   XCircle,
   Clock,
   Save,
-  Filter,
-  Check,
-  Calendar,
-  Sparkles,
+  CheckCheck,
   Search,
-  CheckCheck
+  AlertCircle,
+  X
 } from 'lucide-react';
-import { DataService } from '../../services/dataService';
+import { api } from '../../services/api';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
 
-const CLASS_OPTIONS = [
-  'Class 5',
-  'Class 4',
-  'Class 3',
-  'Class 2',
-  'Class 1',
-  'UKG',
-  'LKG',
-  'Nursery',
-];
-
 export default function AdminAttendanceTracker() {
-  const [selectedClass, setSelectedClass] = useState('Class 5');
+  const [classes, setClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [students, setStudents] = useState([]);
   const [attendanceMap, setAttendanceMap] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [attendanceSaved, setAttendanceSaved] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
+  const [isLoadingRoster, setIsLoadingRoster] = useState(false);
 
+  // 1. Fetch available class cohorts from MongoDB
   useEffect(() => {
-    const allStudents = DataService.getStudents();
-    const classStudents = allStudents.filter((s) => s.grade === selectedClass);
-    setStudents(classStudents);
+    let isMounted = true;
+    async function loadClasses() {
+      setIsLoadingClasses(true);
+      try {
+        const classList = await api.getClasses();
+        if (!isMounted) return;
+        const all = Array.isArray(classList) ? classList : [];
+        setClasses(all);
+        if (all.length > 0) {
+          setSelectedClassId((all[0]._id || all[0].id)?.toString());
+        }
+      } catch (err) {
+        if (isMounted) {
+          setErrorMessage(err.message || 'Failed to load class cohorts.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingClasses(false);
+        }
+      }
+    }
+    loadClasses();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-    // Initialize attendance status (default 'Present')
-    const initialMap = {};
-    classStudents.forEach((s) => {
-      initialMap[s.id] = 'Present';
-    });
-    setAttendanceMap(initialMap);
-  }, [selectedClass]);
+  // 2. Fetch student roster and existing records for selected class cohort and date
+  useEffect(() => {
+    if (!selectedClassId) return;
+    let isMounted = true;
+    async function fetchRoster() {
+      setIsLoadingRoster(true);
+      try {
+        const rosterRes = await api.getStudents({ classId: selectedClassId, limit: 100 });
+        if (!isMounted) return;
+
+        const rosterList = Array.isArray(rosterRes) ? rosterRes : (rosterRes.items || []);
+        setStudents(rosterList);
+
+        // Fetch existing attendance if recorded
+        let existingMap = {};
+        try {
+          const existing = await api.getClassAttendance(selectedClassId, selectedDate);
+          if (Array.isArray(existing)) {
+            existing.forEach((rec) => {
+              const sid = (rec.student?._id || rec.student?.id || rec.student)?.toString();
+              if (sid && rec.status) {
+                existingMap[sid] = rec.status.charAt(0).toUpperCase() + rec.status.slice(1);
+              }
+            });
+          }
+        } catch {
+          // ignore
+        }
+
+        const initialMap = {};
+        rosterList.forEach((s) => {
+          const sid = (s._id || s.id)?.toString();
+          initialMap[sid] = existingMap[sid] || 'Present';
+        });
+        setAttendanceMap(initialMap);
+      } catch (err) {
+        if (isMounted) {
+          setErrorMessage(err.message || 'Failed to fetch student roster.');
+          setStudents([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingRoster(false);
+        }
+      }
+    }
+
+    fetchRoster();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedClassId, selectedDate]);
 
   const toggleStudentStatus = (id) => {
     const current = attendanceMap[id] || 'Present';
     const next = current === 'Present' ? 'Absent' : current === 'Absent' ? 'Late' : 'Present';
-    setAttendanceMap({ ...attendanceMap, [id]: next });
+    setAttendanceMap((prev) => ({ ...prev, [id]: next }));
   };
 
   const markAllPresent = () => {
     const newMap = {};
     students.forEach((s) => {
-      newMap[s.id] = 'Present';
+      const sid = (s._id || s.id)?.toString();
+      newMap[sid] = 'Present';
     });
     setAttendanceMap(newMap);
   };
 
-  const handleSaveAttendance = () => {
-    const presentCount = Object.values(attendanceMap).filter((st) => st === 'Present').length;
-    const absentCount = Object.values(attendanceMap).filter((st) => st === 'Absent').length;
+  const handleSaveAttendance = async () => {
+    if (!selectedClassId) {
+      setErrorMessage('Please select a valid class cohort before saving.');
+      return;
+    }
+    if (students.length === 0) {
+      setErrorMessage('No enrolled students to record attendance for.');
+      return;
+    }
 
-    DataService.markClassAttendance({
+    setIsSaving(true);
+    setErrorMessage(null);
+
+    const payload = {
+      classId: selectedClassId,
       date: selectedDate,
-      className: selectedClass,
-      section: 'A',
-      total: students.length,
-      present: presentCount,
-      absent: absentCount,
-      markedBy: 'School Administrator',
-    });
+      records: students.map((s) => {
+        const sid = (s._id || s.id)?.toString();
+        const rawStatus = (attendanceMap[sid] || 'Present').toLowerCase();
+        return {
+          studentId: sid,
+          status: rawStatus === 'half day' ? 'half_day' : rawStatus,
+        };
+      }),
+    };
 
-    setAttendanceSaved(true);
-    setTimeout(() => setAttendanceSaved(false), 3500);
+    try {
+      await api.markClassAttendance(payload);
+      setAttendanceSaved(true);
+      setTimeout(() => setAttendanceSaved(false), 3500);
+    } catch (err) {
+      setAttendanceSaved(false);
+      setErrorMessage(err.message || 'Failed to save attendance in database.');
+      setTimeout(() => setErrorMessage(null), 4000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const presentCount = Object.values(attendanceMap).filter((st) => st === 'Present').length;
-  const absentCount = Object.values(attendanceMap).filter((st) => st === 'Absent').length;
-  const lateCount = Object.values(attendanceMap).filter((st) => st === 'Late').length;
+  const selectedClassObj = classes.find((c) => (c._id || c.id)?.toString() === selectedClassId?.toString());
+  const selectedClassName = selectedClassObj
+    ? `${selectedClassObj.name} - Section ${selectedClassObj.section || 'A'}`
+    : 'Primary Cohort';
+
+  const presentCount = students.filter((s) => {
+    const sid = (s._id || s.id)?.toString();
+    return (attendanceMap[sid] || 'Present') === 'Present';
+  }).length;
+
+  const absentCount = students.filter((s) => {
+    const sid = (s._id || s.id)?.toString();
+    return attendanceMap[sid] === 'Absent';
+  }).length;
+
+  const lateCount = students.filter((s) => {
+    const sid = (s._id || s.id)?.toString();
+    return attendanceMap[sid] === 'Late';
+  }).length;
 
   const filteredStudents = students.filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    return s.name.toLowerCase().includes(q) || (s.rollNo && s.rollNo.toString().includes(q));
+    const name = (s.fullName || s.name || '').toLowerCase();
+    const roll = (s.rollNumber || s.rollNo || '').toString().toLowerCase();
+    return name.includes(q) || roll.includes(q);
   });
 
   return (
@@ -97,10 +198,10 @@ export default function AdminAttendanceTracker() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-bold text-school-700 uppercase tracking-widest block mb-1">
-            DAILY REGISTRY • DAULATYARPUR CAMPUS
+            CAMPUS ATTENDANCE REGISTER • ACADEMIC DESK
           </span>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-            Class Attendance Management Desk
+            Institutional Attendance Tracker
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Record, update, and monitor daily attendance rosters for Nursery to Class 5 cohorts.
@@ -113,6 +214,7 @@ export default function AdminAttendanceTracker() {
             variant="outline"
             size="sm"
             onClick={markAllPresent}
+            disabled={isSaving || students.length === 0}
             leftIcon={<CheckCheck className="w-4 h-4 text-emerald-600" />}
           >
             Mark All Present
@@ -123,9 +225,10 @@ export default function AdminAttendanceTracker() {
             variant="primary"
             size="sm"
             onClick={handleSaveAttendance}
+            disabled={isSaving || students.length === 0}
             leftIcon={<Save className="w-4 h-4" />}
           >
-            Save Attendance
+            {isSaving ? 'Saving...' : 'Save Attendance'}
           </Button>
         </div>
       </div>
@@ -139,17 +242,26 @@ export default function AdminAttendanceTracker() {
               <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                 Select Primary Cohort
               </label>
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-school-600"
-              >
-                {CLASS_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c} - Section A
-                  </option>
-                ))}
-              </select>
+              {isLoadingClasses ? (
+                <div className="text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-semibold animate-pulse">
+                  Loading cohorts...
+                </div>
+              ) : (
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  className="text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-school-600"
+                >
+                  {classes.map((c) => {
+                    const cid = (c._id || c.id)?.toString();
+                    return (
+                      <option key={cid} value={cid}>
+                        {c.name} - Section {c.section || 'A'}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
 
             {/* Date Picker */}
@@ -161,6 +273,7 @@ export default function AdminAttendanceTracker() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
                 className="text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-school-600"
               />
             </div>
@@ -171,23 +284,43 @@ export default function AdminAttendanceTracker() {
             <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
               Filter Student Name
             </label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by name / roll..."
-              className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-school-600"
-            />
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter by name / roll..."
+                className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-school-600"
+              />
+            </div>
           </div>
         </div>
       </Card>
+
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-rose-500 hover:text-rose-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Success Save Banner */}
       {attendanceSaved && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            <span>Attendance successfully saved and archived for {selectedClass} ({selectedDate}).</span>
+            <span>Attendance successfully saved and archived for {selectedClassName} ({selectedDate}).</span>
           </div>
           <span className="text-[10px] text-emerald-600">Saved to Audit Log</span>
         </div>
@@ -243,29 +376,40 @@ export default function AdminAttendanceTracker() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredStudents.length === 0 ? (
+              {isLoadingRoster ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-slate-400 animate-pulse">
+                    Loading student roster from database...
+                  </td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-slate-400">
-                    No students currently enrolled in {selectedClass}. Enroll new students via the Student Directory.
+                    No students currently enrolled in {selectedClassName}. Enroll new students via the Student Directory.
                   </td>
                 </tr>
               ) : (
                 filteredStudents.map((s) => {
-                  const status = attendanceMap[s.id] || 'Present';
+                  const sid = (s._id || s.id)?.toString();
+                  const status = attendanceMap[sid] || 'Present';
                   return (
-                    <tr key={s.id} className="hover:bg-slate-50/60 transition-colors">
+                    <tr key={sid} className="hover:bg-slate-50/60 transition-colors">
                       <td className="p-3.5 pl-6 font-bold text-slate-900 font-mono">
-                        #{s.rollNo}
+                        #{s.rollNumber || s.rollNo || '—'}
                       </td>
 
                       <td className="p-3.5 font-bold text-slate-900">
-                        <div>{s.name}</div>
-                        <div className="text-[11px] text-slate-400 font-mono font-normal">ID: {s.id}</div>
+                        <div>{s.fullName || s.name}</div>
+                        <div className="text-[11px] text-slate-400 font-mono font-normal">
+                          Admission: {s.admissionNumber || s.admissionNo || sid}
+                        </div>
                       </td>
 
                       <td className="p-3.5 text-slate-600">
-                        <div>{s.parentName}</div>
-                        <div className="text-[11px] text-slate-400">{s.parentPhone}</div>
+                        <div>{s.parent?.fatherName || s.parent?.primaryContact?.name || s.parentName || 'Guardian'}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {s.parent?.primaryContact?.phone || s.parentPhone || '—'}
+                        </div>
                       </td>
 
                       <td className="p-3.5">
@@ -285,7 +429,7 @@ export default function AdminAttendanceTracker() {
                       <td className="p-3.5 pr-6 text-right">
                         <button
                           type="button"
-                          onClick={() => toggleStudentStatus(s.id)}
+                          onClick={() => toggleStudentStatus(sid)}
                           className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors"
                         >
                           Change Status

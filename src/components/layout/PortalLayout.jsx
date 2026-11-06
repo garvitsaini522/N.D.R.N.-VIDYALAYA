@@ -54,12 +54,15 @@ export default function PortalLayout() {
         { to: '/teacher/students', label: 'Student Records', icon: Users },
         { to: '/teacher/classes', label: 'Class Cohorts', icon: School },
         { to: '/teacher/timetable', label: 'Teaching Timetable', icon: CalendarDays },
+        { to: '/teacher/homework', label: 'Homework Desk', icon: BookOpenCheck },
         { to: '/teacher/profile', label: 'Faculty Profile', icon: User },
       ]
     : isParent
     ? [
         { to: dashboardPath, label: 'Dashboard Overview', icon: LayoutDashboard, end: true },
         { to: '/portal/profile', label: 'Child Profile', icon: User },
+        { to: '/portal/timetable', label: 'Class Timetable', icon: CalendarDays },
+        { to: '/portal/homework', label: 'Homework & Tasks', icon: BookOpenCheck },
         { to: '/portal/results', label: 'Results & Report Card', icon: GraduationCap },
         { to: '/portal/fees', label: 'Fee Desk & Receipts', icon: CreditCard },
       ]
@@ -68,6 +71,7 @@ export default function PortalLayout() {
         { to: '/portal/profile', label: 'Student Profile', icon: User },
         { to: '/portal/attendance', label: 'Attendance & Leave', icon: CalendarCheck2 },
         { to: '/portal/timetable', label: 'Class Timetable', icon: CalendarDays },
+        { to: '/portal/homework', label: 'Homework & Tasks', icon: BookOpenCheck },
         { to: '/portal/results', label: 'Results & Report Card', icon: GraduationCap },
         { to: '/portal/fees', label: 'Fee Desk & Receipts', icon: CreditCard },
       ];
@@ -312,28 +316,6 @@ export default function PortalLayout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-8">
-        {/* Temporary Demo Evaluation Mode Banner */}
-        {user?.isDemo && (
-          <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-school-800 text-white px-4 py-2 text-xs shadow-soft-sm flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-amber-700/30 print:hidden">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2 py-0.5 rounded-full bg-white/20 font-black uppercase text-[10px] tracking-wider shrink-0">
-                Demo Evaluation Mode
-              </span>
-              <span className="font-medium text-amber-100">
-                Logged in as <strong className="text-white capitalize">{user.role} Demo Account</strong> ({user.name}). Showing realistic sample data. Offline local mode (no MongoDB required).
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                to="/login"
-                onClick={handleLogout}
-                className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-[11px] transition-colors"
-              >
-                Switch Demo Role
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* Top Navbar for Large Screens */}
         <header className="hidden lg:flex print:hidden items-center justify-between px-8 py-3.5 bg-white border-b border-slate-200/80 sticky top-0 z-20 shadow-2xs">

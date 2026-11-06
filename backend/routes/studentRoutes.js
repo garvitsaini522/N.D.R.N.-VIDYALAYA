@@ -4,6 +4,7 @@ import {
   getStudentById,
   createStudent,
   updateStudent,
+  deleteStudent,
 } from '../controllers/studentController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { requireDatabase } from '../middleware/dbCheckMiddleware.js';
@@ -11,7 +12,7 @@ import { enforceStudentOrParentDataIsolation } from '../middleware/portalAccessM
 
 const router = Router();
 
-// GET /api/students (Administrative roster query)
+// GET /api/students (Administrative & faculty roster query)
 router.get('/', authenticate, authorize('admin', 'teacher', 'staff'), requireDatabase, getStudents);
 
 // GET /api/students/:id (Enforces student & parent data isolation)
@@ -20,7 +21,10 @@ router.get('/:id', authenticate, enforceStudentOrParentDataIsolation, requireDat
 // POST /api/students (Admin only)
 router.post('/', authenticate, authorize('admin'), requireDatabase, createStudent);
 
-// PUT /api/students/:id (Admin and Parent with role-based field sanitization)
-router.put('/:id', authenticate, authorize('admin', 'parent'), requireDatabase, updateStudent);
+// PUT /api/students/:id (Admin and Parent with role-based field sanitization & data isolation)
+router.put('/:id', authenticate, authorize('admin', 'parent'), enforceStudentOrParentDataIsolation, requireDatabase, updateStudent);
+
+// DELETE /api/students/:id (Admin only)
+router.delete('/:id', authenticate, authorize('admin'), requireDatabase, deleteStudent);
 
 export default router;

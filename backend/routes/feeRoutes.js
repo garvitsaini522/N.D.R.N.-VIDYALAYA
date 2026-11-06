@@ -3,6 +3,9 @@ import {
   getFees,
   createFee,
   recordPayment,
+  getGatewayStatus,
+  payFee,
+  verifyPayment,
   getStudentLedger,
 } from '../controllers/feeController.js';
 import { createFeeRules, recordPaymentRules } from '../validators/feeValidator.js';
@@ -13,7 +16,15 @@ import { enforceStudentOrParentDataIsolation } from '../middleware/portalAccessM
 
 const router = Router();
 
-// GET /api/fees
+// GET /api/fees/gateway-status - Payment gateway configuration and offline instructions
+router.get(
+  '/gateway-status',
+  authenticate,
+  authorize('admin', 'staff', 'student', 'parent'),
+  getGatewayStatus
+);
+
+// GET /api/fees - Administrative ledger query
 router.get('/', authenticate, authorize('admin', 'staff'), requireDatabase, getFees);
 
 // POST /api/fees - Create fee invoice (Admin/Staff only)
@@ -38,10 +49,30 @@ router.post(
   recordPayment
 );
 
+// POST /api/fees/pay - Process online fee payment initiation (Student/Parent) or admin collection (Admin/Staff)
+router.post(
+  '/pay',
+  authenticate,
+  authorize('admin', 'staff', 'student', 'parent'),
+  enforceStudentOrParentDataIsolation,
+  requireDatabase,
+  payFee
+);
+
+// POST /api/fees/verify - Verify gateway payment cryptographically
+router.post(
+  '/verify',
+  authenticate,
+  authorize('admin', 'staff', 'student', 'parent'),
+  requireDatabase,
+  verifyPayment
+);
+
 // GET /api/fees/student/:studentId - Get student fee ledger (Protected by student/parent isolation)
 router.get(
   '/student/:studentId',
   authenticate,
+  authorize('admin', 'staff', 'student', 'parent'),
   enforceStudentOrParentDataIsolation,
   requireDatabase,
   getStudentLedger

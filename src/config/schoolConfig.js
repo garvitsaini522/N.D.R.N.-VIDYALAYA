@@ -1,4 +1,4 @@
-import { DataService, SEED_SETTINGS } from '../services/dataService';
+import { DataService, SEED_SETTINGS } from '../services/dataService.js';
 
 function getLiveSettings() {
   try {

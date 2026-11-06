@@ -12,24 +12,50 @@ import {
 import { portalApi } from '../../services/portalApi';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import EmptyState from '../../components/common/EmptyState';
 
 export default function Downloads() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [downloadSuccessMessage, setDownloadSuccessMessage] = useState(null);
 
   const downloads = portalApi.getDownloads();
   const categories = ['All', 'Curriculum', 'Homework', 'Examination', 'Calendar', 'Forms', 'Guidelines'];
 
   const filteredDownloads = downloads.filter((d) => {
-    const matchesSearch =
-      d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase().trim();
+    const titleMatch = (d.title || '').toLowerCase().includes(q);
+    const descMatch = (d.description || '').toLowerCase().includes(q);
+    const matchesSearch = !q || titleMatch || descMatch;
     const matchesCategory = selectedCategory === 'All' || d.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const handleDownload = (doc) => {
-    alert(`Initiating download for "${doc.title}" (${doc.fileSize}).`);
+    // Generate text/blob attachment to simulate clean PDF/document download
+    const blob = new Blob(
+      [
+        `N.D.R.N. Vidyalaya - Official Document\n`,
+        `Title: ${doc.title}\n`,
+        `Category: ${doc.category}\n`,
+        `Format: ${doc.format} (${doc.fileSize})\n`,
+        `Uploaded: ${doc.dateAdded}\n\n`,
+        `Overview: ${doc.description}\n`,
+        `Issued by: Office of Primary Administration, Daulatyarpur, Madhoganj, Hardoi, Uttar Pradesh.\n`,
+      ],
+      { type: 'text/plain;charset=utf-8' }
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${doc.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setDownloadSuccessMessage(`Downloaded "${doc.title}".`);
+    setTimeout(() => setDownloadSuccessMessage(null), 4000);
   };
 
   return (
@@ -46,6 +72,13 @@ export default function Downloads() {
           Download syllabus frameworks, holiday study packages, examination date sheets, and administrative forms for Nursery to Class 5.
         </p>
       </div>
+
+      {downloadSuccessMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{downloadSuccessMessage}</span>
+        </div>
+      )}
 
       {/* Search and Category Filters */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -79,53 +112,60 @@ export default function Downloads() {
       </div>
 
       {/* Downloads Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredDownloads.map((doc) => (
-          <Card
-            key={doc.id}
-            className="p-5 flex flex-col justify-between hover:border-school-200 transition-all border border-slate-200/80"
-          >
-            <div>
-              <div className="flex items-start gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-school-100 text-school-800 flex items-center justify-center shrink-0 shadow-2xs">
-                  <FileText className="w-5 h-5 text-school-700" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-school-50 text-school-800 border border-school-200 uppercase">
-                      {doc.category}
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400">
-                      {doc.format} • {doc.fileSize}
-                    </span>
+      {filteredDownloads.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredDownloads.map((doc) => (
+            <Card
+              key={doc.id}
+              className="p-5 flex flex-col justify-between hover:border-school-200 transition-all border border-slate-200/80"
+            >
+              <div>
+                <div className="flex items-start gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-school-100 text-school-800 flex items-center justify-center shrink-0 shadow-2xs">
+                    <FileText className="w-5 h-5 text-school-700" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900 mt-1.5 leading-snug">
-                    {doc.title}
-                  </h3>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-school-50 text-school-800 border border-school-200 uppercase">
+                        {doc.category}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-slate-400">
+                        {doc.format} • {doc.fileSize}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-900 mt-1.5 leading-snug">
+                      {doc.title}
+                    </h3>
+                  </div>
                 </div>
+
+                <p className="text-xs text-slate-600 mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
+                  {doc.description}
+                </p>
               </div>
 
-              <p className="text-xs text-slate-600 mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
-                {doc.description}
-              </p>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-[11px] text-slate-400">Uploaded {doc.dateAdded}</span>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => handleDownload(doc)}
-                leftIcon={<FileDown className="w-3.5 h-3.5" />}
-                className="text-xs"
-              >
-                Download Document
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-slate-400">Uploaded {doc.dateAdded}</span>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleDownload(doc)}
+                  leftIcon={<FileDown className="w-3.5 h-3.5" />}
+                  className="text-xs"
+                >
+                  Download Document
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No documents found"
+          description="Try adjusting your search keywords or selecting 'All' categories."
+        />
+      )}
     </div>
   );
 }

@@ -107,10 +107,10 @@ export default function Events() {
                 <div className="flex items-start gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-school-900 text-white flex flex-col items-center justify-center shrink-0 shadow-soft-sm">
                     <span className="text-[10px] font-extrabold uppercase text-gold-300">
-                      {evt.date?.split(' ')[1] || 'NOV'}
+                      {evt.month || evt.date?.split(' ')[1] || 'NOV'}
                     </span>
                     <span className="text-lg font-black leading-none">
-                      {evt.date?.split(' ')[0] || '14'}
+                      {evt.day || evt.date?.split(' ')[0] || '14'}
                     </span>
                   </div>
 

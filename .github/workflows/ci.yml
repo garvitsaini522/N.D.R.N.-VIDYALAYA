@@ -1,0 +1,54 @@
+name: N.D.R.N. Vidyalaya CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Test & Build (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ 20.x, 22.x ]
+
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      JWT_SECRET: test-ci-super-secure-jwt-secret-min-32-chars-long
+      ADMIN_SETUP_KEY: test-ci-admin-bootstrap-setup-key-2026
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Run code quality & hygiene scanner
+        run: npm run lint
+
+      - name: Build frontend production bundle
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Run backend automated test suites
+        working-directory: ./backend
+        run: npm test
+

@@ -10,6 +10,13 @@ const router = Router();
 router.get('/', authenticate, enforceStudentOrParentDataIsolation, requireDatabase, getResults);
 
 // POST /api/results (Faculty/Admin only - Protected academic records)
-router.post('/', authenticate, authorize('admin', 'teacher'), requireDatabase, publishResult);
+router.post(
+  '/',
+  authenticate,
+  authorize('admin', 'teacher'),
+  enforceStudentOrParentDataIsolation,
+  requireDatabase,
+  publishResult
+);
 
 export default router;

@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 import { config } from '../config/env.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { User } from '../models/User.js';
+import { Student } from '../models/Student.js';
+import { Parent } from '../models/Parent.js';
+import { Teacher } from '../models/Teacher.js';
 
 /**
  * Verify JWT authentication token from Authorization header
@@ -19,9 +22,26 @@ export async function authenticate(req, res, next) {
   try {
     const decoded = jwt.verify(token, config.jwt.secret);
 
-    // If database is connected, check for account status and token revocation
+    // Initial payload extraction (safe offline fallback; authoritatively overwritten when database is connected)
+    const authUser = {
+      ...decoded,
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+      name: decoded.name,
+      isLinked: decoded.isLinked !== undefined
+        ? Boolean(decoded.isLinked)
+        : Boolean(decoded.studentId || (Array.isArray(decoded.wardIds) && decoded.wardIds.length > 0)),
+      studentId: decoded.studentId || null,
+      parentId: decoded.parentId || null,
+      wardIds: Array.isArray(decoded.wardIds) ? decoded.wardIds : [],
+    };
+
+    // Authoritative live database check:
+    // When MongoDB is connected, NEVER trust client-supplied or JWT-supplied relationship claims.
+    // Overwrite all linkages with authoritatively verified MongoDB records.
     if (mongoose.connection.readyState === 1) {
-      const user = await User.findById(decoded.id).select('status tokenInvalidatedAt');
+      const user = await User.findById(decoded.id).select('status tokenInvalidatedAt role');
       if (!user) {
         return ApiResponse.error(res, 'User associated with this token no longer exists.', 401);
       }
@@ -31,9 +51,70 @@ export async function authenticate(req, res, next) {
       if (user.tokenInvalidatedAt && decoded.iat * 1000 <= user.tokenInvalidatedAt.getTime()) {
         return ApiResponse.error(res, 'Session has been invalidated upon logout. Please login again.', 401);
       }
+
+      authUser.role = user.role;
+
+      // Authoritative database-verified relationship checks (strictly require matching user reference)
+      if (user.role === 'student') {
+        let student = await Student.findOne({ user: user._id }).lean();
+        if (!student && user.student) {
+          const candidate = await Student.findById(user.student).lean();
+          if (candidate && candidate.user && candidate.user.toString() === user._id.toString()) {
+            student = candidate;
+          }
+        }
+
+        if (student) {
+          authUser.isLinked = true;
+          authUser.studentId = student._id.toString();
+          authUser.admissionNumber = student.admissionNumber;
+          authUser.student = student;
+        } else {
+          authUser.isLinked = false;
+          authUser.studentId = null;
+          authUser.admissionNumber = null;
+        }
+      } else if (user.role === 'parent') {
+        let parent = await Parent.findOne({ user: user._id }).lean();
+        if (!parent && user.parent) {
+          const candidate = await Parent.findById(user.parent).lean();
+          if (candidate && candidate.user && candidate.user.toString() === user._id.toString()) {
+            parent = candidate;
+          }
+        }
+
+        if (parent) {
+          const wardIds = (parent.students || []).filter(Boolean).map((s) => s.toString());
+          authUser.parentId = parent._id.toString();
+          authUser.wardIds = wardIds;
+          authUser.isLinked = wardIds.length > 0;
+          authUser.parent = parent;
+        } else {
+          authUser.parentId = null;
+          authUser.wardIds = [];
+          authUser.isLinked = false;
+        }
+      } else if (user.role === 'teacher') {
+        const teacher = await Teacher.findOne({ user: user._id }).lean();
+        if (teacher) {
+          authUser.isLinked = true;
+          authUser.teacherId = teacher._id.toString();
+          authUser.employeeId = teacher.employeeId;
+          authUser.assignedClasses = (teacher.assignedClasses || []).map((c) => c.toString());
+          authUser.wing = teacher.wing;
+          authUser.teacher = teacher;
+        } else {
+          authUser.isLinked = false;
+          authUser.teacherId = null;
+          authUser.assignedClasses = [];
+          authUser.wing = null;
+        }
+      } else if (user.role === 'admin') {
+        authUser.isLinked = true;
+      }
     }
 
-    req.user = decoded; // { id, email, role, name }
+    req.user = authUser;
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {

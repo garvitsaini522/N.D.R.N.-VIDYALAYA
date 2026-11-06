@@ -15,6 +15,7 @@ import {
   Send,
   X
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { useSchoolSettings } from '../../context/SchoolSettingsContext';
 import { Card } from '../../components/common/Card';
@@ -32,6 +33,8 @@ export default function AdminFeeManagement() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Modals
   const [recordModalOpen, setRecordModalOpen] = useState(false);
@@ -47,9 +50,21 @@ export default function AdminFeeManagement() {
     notes: 'Quarterly tuition fee',
   });
 
-  const loadData = () => {
-    setStudents(DataService.getStudents());
-    setFees(DataService.getFees());
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [stList, feeList] = await Promise.all([
+        api.getStudents(),
+        api.getFees(),
+      ]);
+      setStudents(Array.isArray(stList) ? stList : []);
+      setFees(Array.isArray(feeList) ? feeList : []);
+    } catch {
+      setStudents(DataService.getStudents());
+      setFees(DataService.getFees());
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -67,9 +82,9 @@ export default function AdminFeeManagement() {
     const q = search.toLowerCase().trim();
     const matchSearch =
       !q ||
-      s.name.toLowerCase().includes(q) ||
-      s.id.toLowerCase().includes(q) ||
-      s.grade.toLowerCase().includes(q) ||
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.id && s.id.toLowerCase().includes(q)) ||
+      (s.grade && s.grade.toLowerCase().includes(q)) ||
       (s.parentName && s.parentName.toLowerCase().includes(q));
 
     return matchStatus && matchSearch;
@@ -90,24 +105,34 @@ export default function AdminFeeManagement() {
     setRecordModalOpen(true);
   };
 
-  const handleRecordPayment = (e) => {
+  const handleRecordPayment = async (e) => {
     e.preventDefault();
     const student = students.find((s) => s.id === paymentForm.studentId);
     if (!student) return;
 
-    const newFee = DataService.recordFeePayment({
-      studentId: student.id,
-      studentName: student.name,
-      grade: `${student.grade}-${student.section || 'A'}`,
-      term: paymentForm.term,
-      amount: Number(paymentForm.amount),
-      paymentMode: paymentForm.paymentMode,
-      receivedBy: paymentForm.receivedBy,
-    });
+    setIsSaving(true);
+    try {
+      const newFee = await api.recordFeePayment({
+        studentId: student.id,
+        studentName: student.name,
+        grade: `${student.grade}-${student.section || 'A'}`,
+        term: paymentForm.term,
+        amount: Number(paymentForm.amount),
+        paidAmount: Number(paymentForm.amount),
+        paymentMode: paymentForm.paymentMode,
+        receivedBy: paymentForm.receivedBy,
+        remarks: paymentForm.notes,
+      });
 
-    loadData();
-    setRecordModalOpen(false);
-    setReceiptModal(newFee);
+      await loadData();
+      setRecordModalOpen(false);
+      setReceiptModal(newFee);
+    } catch (err) {
+      setSentAlert(err.message || 'Database error: Could not record payment in MongoDB.');
+      setTimeout(() => setSentAlert(null), 4000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSendReminder = (student) => {

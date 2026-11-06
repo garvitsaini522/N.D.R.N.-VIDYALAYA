@@ -118,7 +118,7 @@ export default function AdminLogin() {
               value={empId}
               onChange={(e) => setEmpId(e.target.value)}
               className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900/80 text-white focus:outline-hidden focus:border-gold-400 focus:ring-1 focus:ring-gold-400"
-              placeholder="e.g. admin.demo@ndrn.local"
+              placeholder="e.g. admin@ndrnvidyalaya.edu.in"
             />
           </div>
 

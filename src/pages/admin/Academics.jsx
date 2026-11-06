@@ -99,11 +99,54 @@ export default function AdminAcademics() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [notification, setNotification] = useState(null);
 
+  // Admin Timetable & Routine State
+  const [selectedTimetableClass, setSelectedTimetableClass] = useState('');
+  const [selectedTimetableDay, setSelectedTimetableDay] = useState('Monday');
+  const [timetablePeriods, setTimetablePeriods] = useState([]);
+  const [loadingTimetable, setLoadingTimetable] = useState(false);
+  const [periodModalOpen, setPeriodModalOpen] = useState(false);
+  const [isSavingPeriod, setIsSavingPeriod] = useState(false);
+  const [newPeriodForm, setNewPeriodForm] = useState({
+    periodNumber: 1,
+    startTime: '08:30 AM',
+    endTime: '09:15 AM',
+    subject: 'Hindi',
+    teacher: '',
+    room: 'Room 101',
+    notes: '',
+  });
+
+  // Admin Homework State
+  const [adminHomework, setAdminHomework] = useState([]);
+  const [loadingHomework, setLoadingHomework] = useState(false);
+
   const loadData = async () => {
-    setClasses(DataService.getClasses());
-    setSubjects(DataService.getSubjects());
-    setStudents(DataService.getStudents());
-    setTeachers(DataService.getTeachers());
+    try {
+      const [classList, subjectList, studentList, teacherList] = await Promise.all([
+        api.getClasses(),
+        Promise.resolve(DataService.getSubjects()),
+        api.getStudents(),
+        api.getTeachers(),
+      ]);
+      const validClasses = Array.isArray(classList) ? classList : [];
+      setClasses(validClasses);
+      if (validClasses.length > 0) {
+        setSelectedTimetableClass((prev) => prev || (validClasses[0]._id || validClasses[0].id)?.toString());
+      }
+      setSubjects(Array.isArray(subjectList) ? subjectList : []);
+      setStudents(Array.isArray(studentList) ? studentList : []);
+      setTeachers(Array.isArray(teacherList) ? teacherList : []);
+    } catch {
+      const cls = DataService.getClasses();
+      setClasses(cls);
+      if (cls.length > 0) {
+        setSelectedTimetableClass((prev) => prev || cls[0].id);
+      }
+      setSubjects(DataService.getSubjects());
+      setStudents(DataService.getStudents());
+      setTeachers(DataService.getTeachers());
+    }
+
     try {
       const crs = await api.getAdminCourses('2026-27');
       const list = Array.isArray(crs) ? crs : (crs?.data || []);
@@ -125,18 +168,130 @@ export default function AdminAcademics() {
     };
   }, []);
 
-  const handleSaveClass = (e) => {
+  // Load Timetable when activeTab === 'timetable'
+  useEffect(() => {
+    if (activeTab !== 'timetable' || !selectedTimetableClass) return;
+    let isMounted = true;
+    async function fetchTimetable() {
+      setLoadingTimetable(true);
+      try {
+        const res = await api.getTimetable(selectedTimetableClass, selectedTimetableDay);
+        if (isMounted) {
+          let list = [];
+          if (Array.isArray(res)) {
+            const found = res.find((d) => d.dayOfWeek === selectedTimetableDay) || res[0];
+            list = found?.periods || [];
+          } else if (res && res.periods) {
+            list = res.periods;
+          }
+          setTimetablePeriods(list);
+        }
+      } catch {
+        if (isMounted) setTimetablePeriods([]);
+      } finally {
+        if (isMounted) setLoadingTimetable(false);
+      }
+    }
+    fetchTimetable();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, selectedTimetableClass, selectedTimetableDay]);
+
+  // Load Homework when activeTab === 'homework'
+  useEffect(() => {
+    if (activeTab !== 'homework') return;
+    let isMounted = true;
+    async function fetchHomework() {
+      setLoadingHomework(true);
+      try {
+        const res = await api.getHomework();
+        if (isMounted) {
+          const items = res?.items || (Array.isArray(res) ? res : []);
+          setAdminHomework(items);
+        }
+      } catch {
+        if (isMounted) setAdminHomework([]);
+      } finally {
+        if (isMounted) setLoadingHomework(false);
+      }
+    }
+    fetchHomework();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab]);
+
+  const handleSavePeriod = async (e) => {
+    e.preventDefault();
+    if (!selectedTimetableClass || !newPeriodForm.subject.trim()) return;
+    setIsSavingPeriod(true);
+    try {
+      const updatedPeriods = [...timetablePeriods, newPeriodForm];
+      await api.saveTimetable(selectedTimetableClass, {
+        dayOfWeek: selectedTimetableDay,
+        periods: updatedPeriods,
+      });
+      setTimetablePeriods(updatedPeriods);
+      setPeriodModalOpen(false);
+      setNotification({ type: 'success', message: `Period ${newPeriodForm.periodNumber} scheduled for ${selectedTimetableDay}.` });
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to save period schedule.' });
+    } finally {
+      setIsSavingPeriod(false);
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const handleDeletePeriod = async (periodNumber) => {
+    if (!selectedTimetableClass) return;
+    try {
+      const filtered = timetablePeriods.filter((p) => p.periodNumber !== periodNumber);
+      await api.saveTimetable(selectedTimetableClass, {
+        dayOfWeek: selectedTimetableDay,
+        periods: filtered,
+      });
+      setTimetablePeriods(filtered);
+      setNotification({ type: 'success', message: 'Period removed from schedule.' });
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to remove period.' });
+    } finally {
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const handleDeleteAdminHomework = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this homework assignment?')) return;
+    try {
+      await api.deleteHomework(id);
+      setAdminHomework((prev) => prev.filter((h) => (h.id || h._id) !== id));
+      setNotification({ type: 'success', message: 'Homework assignment deleted.' });
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to delete homework.' });
+    } finally {
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const handleSaveClass = async (e) => {
     e.preventDefault();
     if (!classForm.name || !classForm.section) return;
 
-    if (editingClass) {
-      DataService.updateClass(editingClass.id, classForm);
-    } else {
-      DataService.addClass(classForm);
+    try {
+      if (editingClass) {
+        await api.updateClass(editingClass.id || editingClass._id, classForm);
+        setNotification({ type: 'success', message: `Class cohort ${classForm.name}-${classForm.section} updated successfully.` });
+      } else {
+        await api.createClass(classForm);
+        setNotification({ type: 'success', message: `Class cohort ${classForm.name}-${classForm.section} created.` });
+      }
+      await loadData();
+      setClassModalOpen(false);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to save class cohort.' });
+    } finally {
+      setTimeout(() => setNotification(null), 4000);
     }
-
-    loadData();
-    setClassModalOpen(false);
   };
 
   const handleSaveSubject = (e) => {
@@ -242,19 +397,25 @@ export default function AdminAcademics() {
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
 
-    if (itemToDelete.type === 'class') {
-      DataService.deleteClass(itemToDelete.id);
-    } else if (itemToDelete.type === 'subject') {
-      DataService.deleteSubject(itemToDelete.id);
-    } else if (itemToDelete.type === 'course') {
-      await api.deleteCourse(itemToDelete.id);
-      setNotification({ type: 'success', message: `Removed course specifications for ${itemToDelete.name}` });
-      setTimeout(() => setNotification(null), 3000);
+    try {
+      if (itemToDelete.type === 'class') {
+        await api.deleteClass(itemToDelete.id || itemToDelete._id);
+        setNotification({ type: 'success', message: 'Class cohort deleted successfully from database.' });
+      } else if (itemToDelete.type === 'subject') {
+        DataService.deleteSubject(itemToDelete.id);
+        setNotification({ type: 'success', message: 'Subject removed.' });
+      } else if (itemToDelete.type === 'course') {
+        await api.deleteCourse(itemToDelete.id || itemToDelete._id);
+        setNotification({ type: 'success', message: `Removed course specifications for ${itemToDelete.name}` });
+      }
+      await loadData();
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to delete item.' });
+    } finally {
+      setDeleteConfirmOpen(false);
+      setItemToDelete(null);
+      setTimeout(() => setNotification(null), 4000);
     }
-
-    loadData();
-    setDeleteConfirmOpen(false);
-    setItemToDelete(null);
   };
 
   return (
@@ -698,46 +859,190 @@ export default function AdminAcademics() {
       {/* Tab 3: Timetable Overview */}
       {activeTab === 'timetable' && (
         <Card className="p-6 bg-white border border-slate-200">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-900">Primary Section Class Routine</h3>
-              <p className="text-xs text-slate-500">Daulatyarpur campus daily period allocation</p>
+              <p className="text-xs text-slate-500">Daulatyarpur campus daily period allocation • Active Session 2026-27</p>
             </div>
-            <span className="text-xs font-bold text-school-700 bg-school-50 px-2.5 py-1 rounded-full border border-school-200">
-              Active Session 2026-27
-            </span>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedTimetableClass}
+                onChange={(e) => setSelectedTimetableClass(e.target.value)}
+                className="text-xs px-3 py-1.5 rounded-xl border border-slate-300 font-bold text-slate-800 bg-white"
+              >
+                {classes.map((c) => (
+                  <option key={c._id || c.id} value={(c._id || c.id)?.toString()}>
+                    {c.name} - Section {c.section || 'A'}
+                  </option>
+                ))}
+              </select>
+
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setPeriodModalOpen(true)}
+                className="bg-school-800 hover:bg-school-900 text-white font-bold text-xs"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                <span>Add Period</span>
+              </Button>
+            </div>
           </div>
 
-          <div className="py-12 text-center text-slate-400 text-xs">
-            <Clock className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-            <p className="font-semibold text-slate-700 text-sm">No class routine schedules configured yet.</p>
-            <p className="text-slate-500 mt-1 max-w-md mx-auto">
-              Period allocations and daily routines will appear here once finalized by the academic coordinator.
-            </p>
+          {/* Day Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-4 border-b border-slate-100">
+            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setSelectedTimetableDay(d)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                  selectedTimetableDay === d
+                    ? 'bg-school-800 text-white shadow-soft-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
           </div>
+
+          {loadingTimetable ? (
+            <div className="py-12 text-center text-xs text-slate-400 animate-pulse">
+              Loading timetable schedule for {selectedTimetableDay}...
+            </div>
+          ) : timetablePeriods.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              <Clock className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+              <p className="font-semibold text-slate-700 text-sm">No periods configured for {selectedTimetableDay}.</p>
+              <p className="text-slate-500 mt-1 max-w-md mx-auto mb-4">
+                Click 'Add Period' above to schedule instructional periods for this cohort.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPeriodModalOpen(true)}
+                className="text-xs font-bold"
+              >
+                Configure Period
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 pl-4">Period</th>
+                    <th className="p-3">Time Range</th>
+                    <th className="p-3">Subject</th>
+                    <th className="p-3">Educator</th>
+                    <th className="p-3">Room</th>
+                    <th className="p-3">Notes</th>
+                    <th className="p-3 pr-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {timetablePeriods.map((p) => (
+                    <tr key={p.periodNumber} className="hover:bg-slate-50/60">
+                      <td className="p-3 pl-4 font-mono font-bold text-slate-900">Period {p.periodNumber}</td>
+                      <td className="p-3 font-mono font-medium text-slate-600">{p.startTime} - {p.endTime}</td>
+                      <td className="p-3 font-bold text-slate-900">{p.subject}</td>
+                      <td className="p-3 text-slate-600">{p.teacher?.fullName || p.teacher || '—'}</td>
+                      <td className="p-3 text-slate-600 font-mono">{p.room || 'Room 101'}</td>
+                      <td className="p-3 text-slate-500 text-[11px]">{p.notes || '—'}</td>
+                      <td className="p-3 pr-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePeriod(p.periodNumber)}
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          title="Remove Period"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
       {/* Tab 4: Homework Ledger */}
       {activeTab === 'homework' && (
         <Card className="p-6 bg-white border border-slate-200">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-900">Active Primary Assignments</h3>
-              <p className="text-xs text-slate-500">Homework tasks issued to Nursery - Class 5 students</p>
+              <p className="text-xs text-slate-500">Homework tasks issued across cohorts from MongoDB</p>
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              Session 2026-27
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              {adminHomework.length} Active Tasks
             </span>
           </div>
 
-          <div className="py-12 text-center text-slate-400 text-xs">
-            <BookOpenCheck className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-            <p className="font-semibold text-slate-700 text-sm">No active homework assignments recorded.</p>
-            <p className="text-slate-500 mt-1 max-w-md mx-auto">
-              Assignments posted by faculty members will be listed here for monitoring.
-            </p>
-          </div>
+          {loadingHomework ? (
+            <div className="py-12 text-center text-xs text-slate-400 animate-pulse">
+              Loading active homework assignments from database...
+            </div>
+          ) : adminHomework.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              <BookOpenCheck className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+              <p className="font-semibold text-slate-700 text-sm">No active homework assignments recorded.</p>
+              <p className="text-slate-500 mt-1 max-w-md mx-auto">
+                Assignments posted by educators in the faculty portal will be listed here for institutional monitoring.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 pl-4">Subject</th>
+                    <th className="p-3">Cohort</th>
+                    <th className="p-3">Assignment Title</th>
+                    <th className="p-3">Due Date</th>
+                    <th className="p-3">Educator</th>
+                    <th className="p-3">Submissions</th>
+                    <th className="p-3 pr-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {adminHomework.map((hw) => (
+                    <tr key={hw.id || hw._id} className="hover:bg-slate-50/60">
+                      <td className="p-3 pl-4">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-school-100 text-school-800">
+                          {hw.subject}
+                        </span>
+                      </td>
+                      <td className="p-3 font-semibold text-slate-700">{hw.className}</td>
+                      <td className="p-3">
+                        <div className="font-bold text-slate-900">{hw.title}</div>
+                        <div className="text-[11px] text-slate-500 truncate max-w-xs">{hw.description}</div>
+                      </td>
+                      <td className="p-3 font-mono text-slate-600">{hw.dueDateFormatted || hw.dueDate}</td>
+                      <td className="p-3 text-slate-700">{hw.assignedBy}</td>
+                      <td className="p-3 font-mono font-bold text-emerald-700">{hw.totalSubmissions || 0}</td>
+                      <td className="p-3 pr-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAdminHomework(hw.id || hw._id)}
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          title="Delete Assignment"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
@@ -1177,6 +1482,119 @@ export default function AdminAcademics() {
               />
               <span className="text-xs text-slate-600 font-medium">Active & Published</span>
             </label>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Configure Period Modal */}
+      <Modal
+        isOpen={periodModalOpen}
+        onClose={() => setPeriodModalOpen(false)}
+        title={`Schedule Period on ${selectedTimetableDay}`}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPeriodModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={isSavingPeriod}
+              onClick={handleSavePeriod}
+              className="bg-school-800 text-white font-bold"
+            >
+              {isSavingPeriod ? 'Saving...' : 'Save Period'}
+            </Button>
+          </div>
+        }
+      >
+        <form onSubmit={handleSavePeriod} className="space-y-3 text-xs">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Period # *</label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={newPeriodForm.periodNumber}
+                onChange={(e) => setNewPeriodForm({ ...newPeriodForm, periodNumber: parseInt(e.target.value, 10) || 1 })}
+                required
+                className="w-full p-2 border border-slate-300 rounded-xl font-bold"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Start Time *</label>
+              <input
+                type="text"
+                value={newPeriodForm.startTime}
+                onChange={(e) => setNewPeriodForm({ ...newPeriodForm, startTime: e.target.value })}
+                required
+                placeholder="08:30 AM"
+                className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">End Time *</label>
+              <input
+                type="text"
+                value={newPeriodForm.endTime}
+                onChange={(e) => setNewPeriodForm({ ...newPeriodForm, endTime: e.target.value })}
+                required
+                placeholder="09:15 AM"
+                className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Subject *</label>
+            <input
+              type="text"
+              value={newPeriodForm.subject}
+              onChange={(e) => setNewPeriodForm({ ...newPeriodForm, subject: e.target.value })}
+              required
+              placeholder="e.g. Hindi, Mathematics, English"
+              className="w-full p-2 border border-slate-300 rounded-xl"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Assigned Educator</label>
+              <select
+                value={newPeriodForm.teacher}
+                onChange={(e) => setNewPeriodForm({ ...newPeriodForm, teacher: e.target.value })}
+                className="w-full p-2 border border-slate-300 rounded-xl font-semibold bg-white"
+              >
+                <option value="">Select Faculty...</option>
+                {teachers.map((t) => (
+                  <option key={t.id || t._id} value={t.fullName || t.name}>
+                    {t.fullName || t.name} ({t.designation || 'Teacher'})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Room / Venue</label>
+              <input
+                type="text"
+                value={newPeriodForm.room}
+                onChange={(e) => setNewPeriodForm({ ...newPeriodForm, room: e.target.value })}
+                placeholder="e.g. Room 101, Lab"
+                className="w-full p-2 border border-slate-300 rounded-xl"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Routine Notes (Optional)</label>
+            <input
+              type="text"
+              value={newPeriodForm.notes}
+              onChange={(e) => setNewPeriodForm({ ...newPeriodForm, notes: e.target.value })}
+              placeholder="e.g. Bring drawing notebook and crayons"
+              className="w-full p-2 border border-slate-300 rounded-xl"
+            />
           </div>
         </form>
       </Modal>

@@ -59,19 +59,14 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // If this is a temporary demo session, validate locally without requiring MongoDB
+      // Invalidate any legacy demo tokens and force clean login
       if (storedToken.startsWith('demo_eval_token_')) {
-        try {
-          const parsed = storedUser ? JSON.parse(storedUser) : null;
-          if (parsed && parsed.isDemo && DEMO_ACCOUNTS[parsed.role]) {
-            setUser(parsed);
-            setToken(storedToken);
-            setIsLoading(false);
-            return;
-          }
-        } catch {
-          // invalid stored demo object
-        }
+        localStorage.removeItem('ndrn_auth_token');
+        localStorage.removeItem('ndrn_auth_user');
+        setUser(null);
+        setToken(null);
+        setIsLoading(false);
+        return;
       }
 
       // Genuine production JWT token validation against MongoDB backend
@@ -97,9 +92,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Login with identifier and password.
-   * Matches demo evaluation accounts locally without requiring MongoDB.
-   * Otherwise validates against the production MongoDB backend API.
+   * Login with identifier and password against the production backend API.
    */
   const login = async (identifier, password, preferredRole = 'student') => {
     setError(null);

@@ -68,22 +68,30 @@ export default function AdminGalleryManager() {
     e.preventDefault();
     if (!form.title.trim() || !form.url.trim()) return;
 
-    await api.createGalleryItem({
-      ...form,
-      imageUrl: form.url,
-    });
-    await loadGallery();
-    setModalOpen(false);
-    setForm(INITIAL_IMAGE_FORM);
+    try {
+      await api.createGalleryItem({
+        ...form,
+        imageUrl: form.url,
+      });
+      await loadGallery();
+      setModalOpen(false);
+      setForm(INITIAL_IMAGE_FORM);
+    } catch (err) {
+      alert(err.message || 'Failed to save gallery item in database.');
+    }
   };
 
   const handleConfirmDelete = async () => {
     if (itemToDelete) {
-      const targetId = itemToDelete.id || itemToDelete._id;
-      await api.deleteGalleryItem(targetId);
-      await loadGallery();
-      setDeleteConfirmOpen(false);
-      setItemToDelete(null);
+      try {
+        const targetId = itemToDelete.id || itemToDelete._id;
+        await api.deleteGalleryItem(targetId);
+        await loadGallery();
+        setDeleteConfirmOpen(false);
+        setItemToDelete(null);
+      } catch (err) {
+        alert(err.message || 'Failed to delete gallery item from database.');
+      }
     }
   };
 

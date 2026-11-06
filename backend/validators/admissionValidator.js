@@ -1,4 +1,24 @@
+import mongoose from 'mongoose';
 import { body, param } from 'express-validator';
+
+const VALID_ADMISSION_STATUSES = [
+  'Received',
+  'Pending',
+  'Contacted',
+  'Under Review',
+  'Verified',
+  'Admitted',
+  'Rejected',
+  'Cancelled',
+  'new',
+  'contacted',
+  'documents_pending',
+  'under_review',
+  'verified',
+  'admitted',
+  'rejected',
+  'cancelled',
+];
 
 export const admissionEnquiryRules = [
   body('studentName')
@@ -18,7 +38,7 @@ export const admissionEnquiryRules = [
     .notEmpty()
     .withMessage('Mobile contact number is required')
     .custom((val) => {
-      const digits = val.replace(/\D/g, '');
+      const digits = String(val || '').replace(/\D/g, '');
       if (digits.length < 10) {
         throw new Error('Please enter a valid 10-digit mobile number');
       }
@@ -45,16 +65,29 @@ export const admissionEnquiryRules = [
 
 export const updateAdmissionStatusRules = [
   param('id')
-    .isMongoId()
-    .withMessage('Invalid admission enquiry ID'),
+    .custom((val) => {
+      if (mongoose.Types.ObjectId.isValid(val) || /^ADM-\d{4}-\d+$/i.test(val)) {
+        return true;
+      }
+      throw new Error('Invalid admission enquiry ID format');
+    }),
   body('status')
     .notEmpty()
     .withMessage('Status is required')
-    .isIn(['new', 'contacted', 'documents_pending', 'admitted', 'rejected', 'cancelled'])
-    .withMessage('Invalid admission status'),
+    .custom((val) => {
+      if (!VALID_ADMISSION_STATUSES.includes(val)) {
+        throw new Error('Invalid admission status');
+      }
+      return true;
+    }),
   body('note')
     .optional()
     .trim()
     .isLength({ max: 500 })
     .withMessage('Note cannot exceed 500 characters'),
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Notes cannot exceed 500 characters'),
 ];

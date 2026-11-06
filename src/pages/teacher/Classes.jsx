@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   GraduationCap
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -23,10 +24,28 @@ export default function TeacherClasses() {
   const [activeClassModal, setActiveClassModal] = useState(null);
 
   useEffect(() => {
-    const cls = DataService.getClasses();
-    const st = DataService.getStudents();
-    setClasses(cls);
-    setStudents(st);
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [cls, st] = await Promise.all([
+          api.getClasses(),
+          api.getStudents(),
+        ]);
+        if (isMounted) {
+          setClasses(Array.isArray(cls) ? cls : []);
+          setStudents(Array.isArray(st) ? st : []);
+        }
+      } catch {
+        if (isMounted) {
+          setClasses(DataService.getClasses());
+          setStudents(DataService.getStudents());
+        }
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const totalEnrolled = students.length;

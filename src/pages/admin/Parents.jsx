@@ -12,8 +12,11 @@ import {
   Search,
   Filter,
   CheckCircle2,
-  UserCheck
+  UserCheck,
+  AlertCircle,
+  X
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -38,6 +41,9 @@ const INITIAL_PARENT_FORM = {
 export default function AdminParents() {
   const [parents, setParents] = useState([]);
   const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
@@ -53,9 +59,20 @@ export default function AdminParents() {
   const [parentToDelete, setParentToDelete] = useState(null);
   const [form, setForm] = useState(INITIAL_PARENT_FORM);
 
-  const loadData = () => {
-    setParents(DataService.getParents());
-    setStudents(DataService.getStudents());
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [parentList, studentList] = await Promise.all([
+        api.getParents(),
+        api.getStudents(),
+      ]);
+      setParents(Array.isArray(parentList) ? parentList : []);
+      setStudents(Array.isArray(studentList) ? studentList : []);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to load parent records from database.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -66,7 +83,7 @@ export default function AdminParents() {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     return (
-      p.name.toLowerCase().includes(q) ||
+      (p.name && p.name.toLowerCase().includes(q)) ||
       (p.spouseName && p.spouseName.toLowerCase().includes(q)) ||
       (p.wardName && p.wardName.toLowerCase().includes(q)) ||
       (p.phone && p.phone.includes(q)) ||
@@ -103,31 +120,28 @@ export default function AdminParents() {
     setModalOpen(true);
   };
 
-  const handleSaveParent = (e) => {
+  const handleSaveParent = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.phone.trim()) return;
 
-    // If ward selected, attach ward name & grade
-    let wardData = {};
-    if (form.wardId) {
-      const student = students.find((s) => s.id === form.wardId);
-      if (student) {
-        wardData = {
-          wardId: student.id,
-          wardName: student.name,
-          wardGrade: `${student.grade}-${student.section || 'A'}`,
-        };
+    setIsSaving(true);
+    try {
+      if (editingParent) {
+        await api.updateParent(editingParent.id || editingParent._id, form);
+        setNotification({ type: 'success', message: `Parent '${form.name}' updated successfully in MongoDB.` });
+      } else {
+        await api.createParent(form);
+        setNotification({ type: 'success', message: `Parent '${form.name}' registered successfully.` });
       }
-    }
 
-    if (editingParent) {
-      DataService.updateParent(editingParent.id, { ...form, ...wardData });
-    } else {
-      DataService.addParent({ ...form, ...wardData });
+      await loadData();
+      setModalOpen(false);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Database error: Could not save parent record.' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setNotification(null), 4000);
     }
-
-    loadData();
-    setModalOpen(false);
   };
 
   const handleOpenLinkModal = (parent) => {
@@ -137,22 +151,36 @@ export default function AdminParents() {
     setLinkModalOpen(true);
   };
 
-  const handleConfirmLink = (e) => {
+  const handleConfirmLink = async (e) => {
     e.preventDefault();
     if (!parentToLink || !selectedStudentId) return;
 
-    DataService.linkParentToStudent(parentToLink.id, selectedStudentId, selectedRelationship);
-    loadData();
-    setLinkModalOpen(false);
-    setParentToLink(null);
+    try {
+      await api.linkParentWard(parentToLink.id || parentToLink._id, selectedStudentId);
+      setNotification({ type: 'success', message: 'Student ward successfully linked to parent record in MongoDB.' });
+      await loadData();
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to link ward to parent in database.' });
+    } finally {
+      setLinkModalOpen(false);
+      setParentToLink(null);
+      setTimeout(() => setNotification(null), 4000);
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (parentToDelete) {
-      DataService.deleteParent(parentToDelete.id);
-      loadData();
-      setDeleteConfirmOpen(false);
-      setParentToDelete(null);
+      try {
+        await api.deleteParent(parentToDelete.id || parentToDelete._id);
+        setNotification({ type: 'success', message: 'Parent record deleted successfully.' });
+        await loadData();
+      } catch (err) {
+        setNotification({ type: 'error', message: err.message || 'Failed to delete parent record from database.' });
+      } finally {
+        setDeleteConfirmOpen(false);
+        setParentToDelete(null);
+        setTimeout(() => setNotification(null), 4000);
+      }
     }
   };
 
@@ -182,6 +210,32 @@ export default function AdminParents() {
           Add Parent Record
         </Button>
       </div>
+
+      {notification && (
+        <div
+          className={`p-3.5 rounded-xl border text-xs sm:text-sm flex items-center justify-between shadow-2xs animate-in fade-in ${
+            notification.type === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            className="text-slate-400 hover:text-slate-600 ml-3"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Search Bar */}
       <Card className="p-4 bg-white border border-slate-200">

@@ -157,21 +157,24 @@ export default function AdminEvents() {
       } else {
         await api.createEvent(payload);
       }
+      await loadEvents();
+      setModalOpen(false);
     } catch (err) {
-      console.error('Failed to save event:', err);
+      alert(err.message || 'Failed to save event to database.');
     }
-
-    await loadEvents();
-    setModalOpen(false);
   };
 
   const handleConfirmDelete = async () => {
     if (eventToDelete) {
-      const targetId = eventToDelete.id || eventToDelete._id;
-      await api.deleteEvent(targetId);
-      await loadEvents();
-      setDeleteConfirmOpen(false);
-      setEventToDelete(null);
+      try {
+        const targetId = eventToDelete.id || eventToDelete._id;
+        await api.deleteEvent(targetId);
+        await loadEvents();
+        setDeleteConfirmOpen(false);
+        setEventToDelete(null);
+      } catch (err) {
+        alert(err.message || 'Failed to delete event from database.');
+      }
     }
   };
 

@@ -40,6 +40,7 @@ const TeacherAttendance = lazy(() => import('../pages/teacher/Attendance'));
 const TeacherStudents = lazy(() => import('../pages/teacher/Students'));
 const TeacherClasses = lazy(() => import('../pages/teacher/Classes'));
 const TeacherTimetable = lazy(() => import('../pages/teacher/Timetable'));
+const TeacherHomework = lazy(() => import('../pages/teacher/Homework'));
 const TeacherProfile = lazy(() => import('../pages/teacher/Profile'));
 
 // Admin & Staff Management Pages
@@ -195,7 +196,7 @@ export default function AppRoutes() {
             <Route path="dashboard" element={<StudentDashboard />} />
             <Route path="profile" element={<PortalProfile />} />
             <Route path="attendance" element={<PortalAttendance />} />
-            <Route path="homework" element={<Navigate to="/student/dashboard" replace />} />
+            <Route path="homework" element={<PortalHomework />} />
             <Route path="timetable" element={<PortalTimetable />} />
             <Route path="results" element={<PortalResults />} />
             <Route path="academics" element={<PortalResults />} />
@@ -221,7 +222,7 @@ export default function AppRoutes() {
             <Route path="profile" element={<PortalProfile />} />
             <Route path="attendance" element={<Navigate to="/parent/dashboard" replace />} />
             <Route path="homework" element={<PortalHomework />} />
-            <Route path="timetable" element={<Navigate to="/parent/dashboard" replace />} />
+            <Route path="timetable" element={<PortalTimetable />} />
             <Route path="results" element={<PortalResults />} />
             <Route path="academics" element={<PortalResults />} />
             <Route path="fees" element={<PortalFees />} />
@@ -247,7 +248,7 @@ export default function AppRoutes() {
             <Route path="students" element={<TeacherStudents />} />
             <Route path="classes" element={<TeacherClasses />} />
             <Route path="timetable" element={<TeacherTimetable />} />
-            <Route path="homework" element={<Navigate to="/teacher/dashboard" replace />} />
+            <Route path="homework" element={<TeacherHomework />} />
             <Route path="notices" element={<Navigate to="/teacher/dashboard" replace />} />
             <Route path="leave" element={<Navigate to="/teacher/dashboard" replace />} />
             <Route path="profile" element={<TeacherProfile />} />

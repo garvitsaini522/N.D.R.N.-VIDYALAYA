@@ -4,29 +4,19 @@ import {
   getTeacherById,
   createTeacher,
   updateTeacher,
+  deleteTeacher,
 } from '../controllers/teacherController.js';
-import { authenticate, authorize } from '../middleware/authMiddleware.js';
+import { authenticate, authorize, optionalAuth } from '../middleware/authMiddleware.js';
 import { requireDatabase } from '../middleware/dbCheckMiddleware.js';
 
 const router = Router();
 
-// Public route: list faculty educators
+// Public route: list faculty educators (optionalAuth enables full view for authenticated admins)
 // GET /api/teachers
-router.get('/', requireDatabase, getTeachers);
+router.get('/', optionalAuth, requireDatabase, getTeachers);
 
-// GET /api/teachers/:id
-router.get(
-  '/:id',
-  (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      return authenticate(req, res, next);
-    }
-    next();
-  },
-  requireDatabase,
-  getTeacherById
-);
+// GET /api/teachers/:id (Public view or authenticated teacher/admin view)
+router.get('/:id', optionalAuth, requireDatabase, getTeacherById);
 
 // Admin routes
 // POST /api/teachers
@@ -34,5 +24,8 @@ router.post('/', authenticate, authorize('admin'), requireDatabase, createTeache
 
 // PUT /api/teachers/:id (Admin and Teacher)
 router.put('/:id', authenticate, authorize('admin', 'teacher'), requireDatabase, updateTeacher);
+
+// DELETE /api/teachers/:id (Admin only)
+router.delete('/:id', authenticate, authorize('admin'), requireDatabase, deleteTeacher);
 
 export default router;

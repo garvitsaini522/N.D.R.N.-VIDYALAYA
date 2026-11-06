@@ -57,6 +57,25 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      default: null,
+      sparse: true,
+      index: true,
+    },
+    parent: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Parent',
+      default: null,
+      sparse: true,
+      index: true,
+    },
+    isLinked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,

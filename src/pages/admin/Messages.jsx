@@ -87,33 +87,45 @@ export default function AdminMessages() {
     e.preventDefault();
     if (!selectedMsg) return;
 
-    const targetId = selectedMsg.id || selectedMsg._id;
-    await api.markContactAsRead(targetId);
-    DataService.updateContactStatus(targetId, 'Resolved', replyText);
+    try {
+      const targetId = selectedMsg.id || selectedMsg._id;
+      await api.markContactAsRead(targetId);
+      DataService.updateContactStatus(targetId, 'Resolved', replyText);
 
-    await loadMessages();
-    setSelectedMsg(null);
-    setSentNotice(true);
-    setTimeout(() => setSentNotice(false), 3500);
+      await loadMessages();
+      setSelectedMsg(null);
+      setSentNotice(true);
+      setTimeout(() => setSentNotice(false), 3500);
+    } catch (err) {
+      alert(err.message || 'Failed to update message status in database.');
+    }
   };
 
   const handleToggleStatus = async (msg) => {
-    const targetId = msg.id || msg._id;
-    const next = msg.status === 'Open' ? 'Resolved' : 'Open';
-    DataService.updateContactStatus(targetId, next, msg.reply || '');
-    if (next === 'Resolved') {
-      await api.markContactAsRead(targetId);
+    try {
+      const targetId = msg.id || msg._id;
+      const next = msg.status === 'Open' ? 'Resolved' : 'Open';
+      if (next === 'Resolved') {
+        await api.markContactAsRead(targetId);
+      }
+      DataService.updateContactStatus(targetId, next, msg.reply || '');
+      await loadMessages();
+    } catch (err) {
+      alert(err.message || 'Failed to update message status in database.');
     }
-    await loadMessages();
   };
 
   const handleConfirmDelete = async () => {
     if (msgToDelete) {
-      const targetId = msgToDelete.id || msgToDelete._id;
-      await api.deleteContactMessage(targetId);
-      await loadMessages();
-      setDeleteConfirmOpen(false);
-      setMsgToDelete(null);
+      try {
+        const targetId = msgToDelete.id || msgToDelete._id;
+        await api.deleteContactMessage(targetId);
+        await loadMessages();
+        setDeleteConfirmOpen(false);
+        setMsgToDelete(null);
+      } catch (err) {
+        alert(err.message || 'Failed to delete message from database.');
+      }
     }
   };
 

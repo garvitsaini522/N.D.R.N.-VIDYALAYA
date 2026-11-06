@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { portalApi } from '../services/portalApi';
 import { DataService } from '../services/dataService';
 
 const PortalContext = createContext(null);
@@ -58,21 +59,62 @@ export function PortalProvider({ children }) {
     return wards[0]?.id || null;
   });
 
-  // Keep available wards up to date if user changes
+  // Keep available wards up to date if user changes, fetching from real API when wardIds exist
   useEffect(() => {
-    const wards = getInitialWards();
-    setAvailableWards(wards);
+    let isMounted = true;
+    const initialWards = getInitialWards();
+    setAvailableWards(initialWards);
 
-    const saved = localStorage.getItem('ndrn_portal_active_ward_id');
-    if (!saved || !wards.some((w) => w.id === saved)) {
-      if (wards.length > 0) {
-        setActiveWardId(wards[0].id);
-        localStorage.setItem('ndrn_portal_active_ward_id', wards[0].id);
-      } else {
-        setActiveWardId(null);
-        localStorage.removeItem('ndrn_portal_active_ward_id');
+    async function syncRealWards() {
+      if (user?.role === 'parent' && Array.isArray(user?.wardIds) && user.wardIds.length > 0) {
+        try {
+          const wardPromises = user.wardIds.map((id) => portalApi.getStudent(id));
+          const results = await Promise.all(wardPromises);
+          const realWards = results
+            .map((res) => res.data)
+            .filter(Boolean)
+            .map((s) => ({
+              ...s,
+              id: s._id || s.id,
+              name: s.fullName || s.name,
+              grade: s.class?.name ? `${s.class.name}-${s.class.section || 'A'}` : (s.grade || 'Primary Wing'),
+              admissionNo: s.admissionNumber || s.admissionNo || s.id,
+              rollNo: s.rollNumber || s.rollNo || '—',
+            }));
+
+          if (isMounted && realWards.length > 0) {
+            setAvailableWards(realWards);
+            const saved = localStorage.getItem('ndrn_portal_active_ward_id');
+            if (!saved || !realWards.some((w) => w.id === saved)) {
+              setActiveWardId(realWards[0].id);
+              localStorage.setItem('ndrn_portal_active_ward_id', realWards[0].id);
+            }
+            return;
+          }
+        } catch {
+          // Fall back to initial wards
+        }
+      }
+
+      if (isMounted) {
+        const saved = localStorage.getItem('ndrn_portal_active_ward_id');
+        if (!saved || !initialWards.some((w) => w.id === saved)) {
+          if (initialWards.length > 0) {
+            setActiveWardId(initialWards[0].id);
+            localStorage.setItem('ndrn_portal_active_ward_id', initialWards[0].id);
+          } else {
+            setActiveWardId(null);
+            localStorage.removeItem('ndrn_portal_active_ward_id');
+          }
+        }
       }
     }
+
+    syncRealWards();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   const switchWard = (wardId) => {

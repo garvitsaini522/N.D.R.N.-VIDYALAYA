@@ -1,39 +1,21 @@
 import { DataService, normalizeAcademicSession } from './dataService.js';
-
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:5000/api';
+import { apiFetch, getApiBaseUrl } from './apiConfig.js';
 
 /**
  * Unified API Client for N.D.R.N. Vidyalaya
- * Connects Public Website, Admin Console, and Student/Parent Portals to Node/Express backend.
- * Features automated fallback to persistent DataService when backend database is disconnected.
+ * Connects Public Website, Admin Console, and Student/Parent Portals to Node/Express backend and MongoDB.
+ * Uses centralized apiConfig for environment-aware API URL and robust error handling.
+ * Enforces strict error propagation on mutations (never falsely reports success on DB failure).
+ * Features read-only fallback to DataService for offline resilience.
  */
 class ApiClient {
   async request(endpoint, options = {}) {
-    const token = localStorage.getItem('ndrn_auth_token');
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    };
-
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      const err = new Error(data.message || `Request failed with status ${response.status}`);
-      err.status = response.status;
-      err.errors = data.errors;
-      throw err;
-    }
-
-    return data;
+    return apiFetch(endpoint, options);
   }
 
-  // --- PUBLIC & ADMISSIONS ---
+  // =========================================================================
+  // 1. PUBLIC & ADMISSIONS
+  // =========================================================================
   async getNotices(targetAudience = 'all') {
     try {
       const res = await this.request('/notices');
@@ -111,57 +93,68 @@ class ApiClient {
   }
 
   async submitAdmissionEnquiry(payload) {
-    let apiSuccess = false;
-    let apiData = null;
-
-    try {
-      const res = await this.request('/admissions/enquire', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      apiSuccess = true;
-      apiData = res.data;
-    } catch (err) {
-      console.warn('Backend admission enquiry submission:', err.message);
-    }
-
-    // Always persist to local DataService with automated principal delivery records
-    const local = DataService.addAdmissionInquiry({
-      ...payload,
-      sentToPrincipalWhatsApp: '+91 8429231617',
-      sentToPrincipalEmail: 'ueyuwhw@gmail.com',
-      deliveryStatus: 'Delivered',
-      deliveredAt: new Date().toISOString(),
+    const res = await this.request('/admissions/enquire', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
-    return { data: apiData || local, isFromApi: apiSuccess };
+    const responseData = res?.data || {};
+    // Synchronize with local storage on confirmed backend persistence
+    DataService.addAdmissionInquiry({
+      ...payload,
+      enquiryNumber: responseData.enquiryNumber,
+      id: responseData.enquiryNumber,
+      status: responseData.status || 'Received',
+      deliveryStatus: responseData.deliveryStatus || 'Not Applicable',
+      submittedAt: new Date().toISOString(),
+    });
+    return { data: responseData, isFromApi: true, success: true };
   }
 
   async submitContactMessage(payload) {
-    let apiSuccess = false;
-    let apiData = null;
-
-    try {
-      const res = await this.request('/contact', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      apiSuccess = true;
-      apiData = res.data;
-    } catch (err) {
-      console.warn('Backend contact submission:', err.message);
-    }
-
-    // Always persist to local DataService so admin console reflects it immediately
-    const local = DataService.addContactMessage(payload);
-    return { data: apiData || local, isFromApi: apiSuccess };
+    const res = await this.request('/contact', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    DataService.addContactMessage(payload);
+    return { data: res?.data || payload, isFromApi: true, success: true };
   }
 
-  // --- ADMIN ADMISSIONS ---
+  // =========================================================================
+  // 2. ADMIN ADMISSIONS & CONTACT MESSAGES
+  // =========================================================================
   async getAdmissions(params = {}) {
     try {
       const query = new URLSearchParams(params).toString();
       const res = await this.request(`/admissions?${query}`);
-      if (res && res.data) return res.data.items || res.data;
+      if (res && res.data) {
+        const raw = Array.isArray(res.data) ? res.data : (res.data.items || res.data);
+        if (Array.isArray(raw)) {
+          return raw.map((a) => {
+            const rawStatus = a.status || 'Received';
+            let formattedStatus = rawStatus;
+            if (rawStatus === 'new') formattedStatus = 'Received';
+            else if (rawStatus === 'under_review') formattedStatus = 'Under Review';
+            else if (rawStatus === 'documents_pending') formattedStatus = 'Pending Docs';
+            else if (rawStatus === 'admitted') formattedStatus = 'Admitted';
+            else if (rawStatus === 'rejected') formattedStatus = 'Rejected';
+            else if (rawStatus.length > 0) {
+              formattedStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+            }
+
+            const rawDate = a.date || (a.createdAt ? new Date(a.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+
+            return {
+              ...a,
+              id: a.enquiryNumber || a._id,
+              _id: a._id,
+              enquiryNumber: a.enquiryNumber,
+              date: rawDate,
+              status: formattedStatus,
+              deliveryStatus: a.deliveryStatus || 'Not Applicable',
+            };
+          });
+        }
+      }
     } catch {
       // Fallback
     }
@@ -169,29 +162,22 @@ class ApiClient {
   }
 
   async updateAdmissionStatus(id, newStatus, notes) {
-    try {
-      await this.request(`/admissions/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: newStatus, notes }),
-      });
-    } catch {
-      // Fallback
-    }
-    return DataService.updateAdmissionStatus(id, newStatus, notes);
+    const res = await this.request(`/admissions/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus, note: notes, notes }),
+    });
+    DataService.updateAdmissionStatus(id, newStatus, notes);
+    return res?.data || res;
   }
 
   async deleteAdmission(id) {
-    try {
-      await this.request(`/admissions/${id}`, {
-        method: 'DELETE',
-      });
-    } catch {
-      // Fallback
-    }
-    return DataService.deleteAdmission(id);
+    const res = await this.request(`/admissions/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteAdmission(id);
+    return res?.data || res;
   }
 
-  // --- ADMIN CONTACT MESSAGES ---
   async getContactMessages(params = {}) {
     try {
       const query = new URLSearchParams(params).toString();
@@ -204,28 +190,24 @@ class ApiClient {
   }
 
   async markContactAsRead(id) {
-    try {
-      await this.request(`/contact/${id}/read`, {
-        method: 'PATCH',
-      });
-    } catch {
-      // Fallback
-    }
-    return DataService.updateContactStatus(id, 'Resolved', 'Marked as read');
+    const res = await this.request(`/contact/${id}/read`, {
+      method: 'PATCH',
+    });
+    DataService.updateContactStatus(id, 'Resolved', 'Marked as read');
+    return res?.data || res;
   }
 
   async deleteContactMessage(id) {
-    try {
-      await this.request(`/contact/${id}`, {
-        method: 'DELETE',
-      });
-    } catch {
-      // Fallback
-    }
-    return DataService.deleteContact(id);
+    const res = await this.request(`/contact/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteContact(id);
+    return res?.data || res;
   }
 
-  // --- ADMIN CONTENT (NOTICES, EVENTS, GALLERY) ---
+  // =========================================================================
+  // 3. ADMIN CONTENT (NOTICES, EVENTS, GALLERY)
+  // =========================================================================
   async createNotice(noticeData) {
     const payload = {
       ...noticeData,
@@ -233,24 +215,20 @@ class ApiClient {
       category: noticeData.category === 'Academics' ? 'Academic' : (noticeData.category || 'General'),
       isPinned: noticeData.pinned !== undefined ? Boolean(noticeData.pinned) : Boolean(noticeData.isPinned),
     };
-    try {
-      const res = await this.request('/notices', {
-        method: 'POST',
-        body: JSON.stringify(payload),
+    const res = await this.request('/notices', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (res && res.data) {
+      DataService.addNotice({
+        ...res.data,
+        id: res.data._id || res.data.id,
+        category: noticeData.category || 'Academics',
+        pinned: res.data.isPinned !== undefined ? res.data.isPinned : noticeData.pinned,
       });
-      if (res && res.data) {
-        DataService.addNotice({
-          ...res.data,
-          id: res.data._id || res.data.id,
-          category: noticeData.category || 'Academics',
-          pinned: res.data.isPinned !== undefined ? res.data.isPinned : noticeData.pinned,
-        });
-        return res.data;
-      }
-    } catch {
-      // Fallback
+      return res.data;
     }
-    return DataService.addNotice(noticeData);
+    return res;
   }
 
   async updateNotice(id, updatedFields) {
@@ -260,32 +238,25 @@ class ApiClient {
       ...(updatedFields.pinned !== undefined ? { isPinned: Boolean(updatedFields.pinned) } : {}),
       ...(updatedFields.summary && !updatedFields.content ? { content: updatedFields.summary } : {}),
     };
-    try {
-      const res = await this.request(`/notices/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
+    const res = await this.request(`/notices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (res && res.data) {
+      DataService.updateNotice(id, {
+        ...res.data,
+        id: res.data._id || id,
+        category: updatedFields.category || res.data.category,
       });
-      if (res && res.data) {
-        DataService.updateNotice(id, {
-          ...res.data,
-          id: res.data._id || id,
-          category: updatedFields.category || res.data.category,
-        });
-        return res.data;
-      }
-    } catch {
-      // Fallback
+      return res.data;
     }
-    return DataService.updateNotice(id, updatedFields);
+    return res;
   }
 
   async deleteNotice(id) {
-    try {
-      await this.request(`/notices/${id}`, { method: 'DELETE' });
-    } catch {
-      // Fallback
-    }
-    return DataService.deleteNotice(id);
+    const res = await this.request(`/notices/${id}`, { method: 'DELETE' });
+    DataService.deleteNotice(id);
+    return res;
   }
 
   async createEvent(eventData) {
@@ -295,24 +266,20 @@ class ApiClient {
       type: (eventData.type || (eventData.status === 'Completed' ? 'past' : 'upcoming')).toLowerCase(),
       status: eventData.status === 'Upcoming' ? 'scheduled' : (eventData.status === 'Completed' ? 'completed' : (eventData.status || 'scheduled')),
     };
-    try {
-      const res = await this.request('/events', {
-        method: 'POST',
-        body: JSON.stringify(payload),
+    const res = await this.request('/events', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (res && res.data) {
+      DataService.addEvent({
+        ...res.data,
+        id: res.data._id || res.data.id,
+        date: eventData.date || eventData.startDate,
+        status: eventData.status || 'Upcoming',
       });
-      if (res && res.data) {
-        DataService.addEvent({
-          ...res.data,
-          id: res.data._id || res.data.id,
-          date: eventData.date || eventData.startDate,
-          status: eventData.status || 'Upcoming',
-        });
-        return res.data;
-      }
-    } catch {
-      // Fallback
+      return res.data;
     }
-    return DataService.addEvent(eventData);
+    return res;
   }
 
   async updateEvent(id, updatedFields) {
@@ -324,103 +291,503 @@ class ApiClient {
         type: updatedFields.status === 'Completed' ? 'past' : 'upcoming',
       } : {}),
     };
-    try {
-      const res = await this.request(`/events/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
+    const res = await this.request(`/events/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (res && res.data) {
+      DataService.updateEvent(id, {
+        ...res.data,
+        id: res.data._id || id,
+        date: updatedFields.date || res.data.startDate,
       });
-      if (res && res.data) {
-        DataService.updateEvent(id, {
-          ...res.data,
-          id: res.data._id || id,
-          date: updatedFields.date || res.data.startDate,
-        });
-        return res.data;
-      }
-    } catch {
-      // Fallback
+      return res.data;
     }
-    return DataService.updateEvent(id, updatedFields);
+    return res;
   }
 
   async deleteEvent(id) {
-    try {
-      await this.request(`/events/${id}`, { method: 'DELETE' });
-    } catch {
-      // Fallback
-    }
-    return DataService.deleteEvent(id);
+    const res = await this.request(`/events/${id}`, { method: 'DELETE' });
+    DataService.deleteEvent(id);
+    return res;
   }
 
   async createGalleryItem(itemData) {
-    try {
-      const res = await this.request('/gallery', {
-        method: 'POST',
-        body: JSON.stringify(itemData),
-      });
-      if (res && res.data) {
-        DataService.addGalleryItem(res.data);
-        return res.data;
-      }
-    } catch {
-      // Fallback
+    const res = await this.request('/gallery', {
+      method: 'POST',
+      body: JSON.stringify(itemData),
+    });
+    if (res && res.data) {
+      DataService.addGalleryItem(res.data);
+      return res.data;
     }
-    return DataService.addGalleryItem(itemData);
+    return res;
   }
 
   async deleteGalleryItem(id) {
-    try {
-      await this.request(`/gallery/${id}`, { method: 'DELETE' });
-    } catch {
-      // Fallback
-    }
-    return DataService.deleteGalleryItem(id);
+    const res = await this.request(`/gallery/${id}`, { method: 'DELETE' });
+    DataService.deleteGalleryItem(id);
+    return res;
   }
 
-  // --- INSTITUTIONAL ROSTERS ---
+  // =========================================================================
+  // 4. INSTITUTIONAL ROSTERS (STUDENTS, PARENTS, TEACHERS, CLASSES)
+  // =========================================================================
   async getStudents(params = {}) {
     try {
       const query = new URLSearchParams(params).toString();
       const res = await this.request(`/students?${query}`);
-      if (res && res.data) return res.data.items || res.data;
+      if (res && res.data) {
+        const raw = Array.isArray(res.data) ? res.data : (res.data.items || res.data);
+        if (Array.isArray(raw)) {
+          return raw.map((s) => ({
+            ...s,
+            id: s.id || s._id,
+            name: s.fullName || s.name,
+            rollNo: s.rollNumber || s.rollNo,
+            grade: s.class?.name || s.grade || 'Class 5',
+            section: s.class?.section || s.section || 'A',
+            parentName: s.parent?.fatherName || s.parent?.primaryContact?.name || s.parentName || 'Parent / Guardian',
+            parentPhone: s.parent?.primaryContact?.phone || s.parentPhone || '',
+            parentEmail: s.parent?.primaryContact?.email || s.parentEmail || '',
+            address: typeof s.address === 'string' ? s.address : (s.address?.street || 'Daulatyarpur, Madhoganj'),
+            status: s.status === 'active' ? 'Active' : (s.status === 'inactive' ? 'Inactive' : (s.status || 'Active')),
+            feeStatus: s.feeStatus || 'Paid',
+            pendingFeeAmount: s.pendingFeeAmount || 0,
+          }));
+        }
+      }
     } catch {
       // Fallback
     }
     return DataService.getStudents();
   }
 
+  async createStudent(studentData) {
+    const res = await this.request('/students', {
+      method: 'POST',
+      body: JSON.stringify(studentData),
+    });
+    if (res && res.data) {
+      DataService.addStudent({
+        ...studentData,
+        id: res.data._id || res.data.id,
+      });
+      return res.data;
+    }
+    return res;
+  }
+
+  async updateStudent(id, studentData) {
+    const res = await this.request(`/students/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(studentData),
+    });
+    if (res && res.data) {
+      DataService.updateStudent(id, studentData);
+      return res.data;
+    }
+    return res;
+  }
+
+  async deleteStudent(id) {
+    const res = await this.request(`/students/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteStudent(id);
+    return res;
+  }
+
   async getParents(params = {}) {
     try {
       const query = new URLSearchParams(params).toString();
       const res = await this.request(`/parents?${query}`);
-      if (res && res.data) return res.data.items || res.data;
+      if (res && res.data) {
+        const raw = Array.isArray(res.data) ? res.data : (res.data.items || res.data);
+        if (Array.isArray(raw)) {
+          return raw.map((p) => {
+            const firstStudent = p.students?.[0];
+            return {
+              ...p,
+              id: p.id || p._id,
+              name: p.primaryContact?.name || p.fatherName || p.motherName || p.name || 'Parent',
+              spouseName: p.spouseName || (p.primaryContact?.relationship === 'Mother' ? p.fatherName : p.motherName) || '',
+              relationship: p.primaryContact?.relationship || p.relationship || 'Father',
+              phone: p.primaryContact?.phone || p.phone || '',
+              alternatePhone: p.alternatePhone || '',
+              email: p.primaryContact?.email || p.email || '',
+              occupation: p.occupation || '',
+              address: typeof p.address === 'string' ? p.address : (p.address?.street || 'Daulatyarpur, Madhoganj'),
+              wardId: firstStudent?._id || p.wardId || '',
+              wardName: firstStudent?.fullName || p.wardName || '',
+              wardGrade: firstStudent?.class?.name ? `${firstStudent.class.name}-${firstStudent.section || 'A'}` : (p.wardGrade || ''),
+              status: p.status === 'inactive' ? 'Inactive' : 'Active',
+            };
+          });
+        }
+      }
     } catch {
       // Fallback
     }
     return DataService.getParents();
   }
 
+  async createParent(parentData) {
+    const res = await this.request('/parents', {
+      method: 'POST',
+      body: JSON.stringify(parentData),
+    });
+    if (res && res.data) {
+      DataService.addParent({
+        ...parentData,
+        id: res.data._id || res.data.id,
+      });
+      return res.data;
+    }
+    return res;
+  }
+
+  async updateParent(id, parentData) {
+    const res = await this.request(`/parents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(parentData),
+    });
+    if (res && res.data) {
+      DataService.updateParent(id, parentData);
+      return res.data;
+    }
+    return res;
+  }
+
+  async deleteParent(id) {
+    const res = await this.request(`/parents/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteParent(id);
+    return res;
+  }
+
+  async linkParentWard(parentId, studentId) {
+    const res = await this.request(`/parents/${parentId}/wards`, {
+      method: 'POST',
+      body: JSON.stringify({ studentId }),
+    });
+    return res?.data || res;
+  }
+
+  async unlinkParentWard(parentId, studentId) {
+    const res = await this.request(`/parents/${parentId}/wards/${studentId}`, {
+      method: 'DELETE',
+    });
+    return res?.data || res;
+  }
+
   async getTeachers() {
     try {
       const res = await this.request('/teachers');
-      if (res && res.data) return res.data.items || res.data;
+      if (res && res.data) {
+        const raw = Array.isArray(res.data) ? res.data : (res.data.items || res.data);
+        if (Array.isArray(raw)) {
+          return raw.map((t) => ({
+            ...t,
+            id: t.id || t._id,
+            name: t.fullName || t.name,
+            employeeId: t.employeeId,
+            designation: t.designation || 'Primary Educator',
+            wing: t.wing || 'Primary',
+            email: t.user?.email || t.email || '',
+            phone: t.phone || '',
+            qualification: t.qualification || 'B.A., B.Ed.',
+            experience: t.experienceYears ? `${t.experienceYears} Years` : (t.experience || '3 Years'),
+            assignedClasses: (t.assignedClasses || []).map((c) => typeof c === 'object' ? `${c.name || 'Class'}-${c.section || 'A'}` : c),
+            primarySubjects: t.primarySubjects || [],
+            status: t.status === 'inactive' ? 'Inactive' : 'Active',
+          }));
+        }
+      }
     } catch {
       // Fallback
     }
     return DataService.getTeachers();
   }
 
+  async createTeacher(teacherData) {
+    const res = await this.request('/teachers', {
+      method: 'POST',
+      body: JSON.stringify(teacherData),
+    });
+    if (res && res.data) {
+      DataService.addTeacher({
+        ...teacherData,
+        id: res.data._id || res.data.id,
+      });
+      return res.data;
+    }
+    return res;
+  }
+
+  async updateTeacher(id, teacherData) {
+    const res = await this.request(`/teachers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(teacherData),
+    });
+    if (res && res.data) {
+      DataService.updateTeacher(id, teacherData);
+      return res.data;
+    }
+    return res;
+  }
+
+  async deleteTeacher(id) {
+    const res = await this.request(`/teachers/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteTeacher(id);
+    return res;
+  }
+
   async getClasses() {
     try {
       const res = await this.request('/classes');
-      if (res && res.data) return res.data;
+      if (res && res.data) {
+        const raw = Array.isArray(res.data) ? res.data : (res.data.items || res.data);
+        if (Array.isArray(raw)) {
+          return raw.map((c) => ({
+            ...c,
+            id: c.id || c._id,
+            name: c.name,
+            section: c.section || 'A',
+            room: c.roomNumber || c.room || 'Room 101',
+            capacity: c.capacity || 35,
+            classTeacher: c.classTeacher?.fullName || c.classTeacher || 'Assigned Faculty',
+            studentCount: c.studentCount || 0,
+          }));
+        }
+      }
     } catch {
       // Fallback
     }
     return DataService.getClasses();
   }
 
-  // --- FEE STRUCTURE (PUBLIC & ADMIN) ---
+  async createClass(classData) {
+    const res = await this.request('/classes', {
+      method: 'POST',
+      body: JSON.stringify(classData),
+    });
+    if (res && res.data) {
+      DataService.addClass({
+        ...classData,
+        id: res.data._id || res.data.id,
+      });
+      return res.data;
+    }
+    return res;
+  }
+
+  async updateClass(id, classData) {
+    const res = await this.request(`/classes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(classData),
+    });
+    if (res && res.data) {
+      DataService.updateClass(id, classData);
+      return res.data;
+    }
+    return res;
+  }
+
+  async deleteClass(id) {
+    const res = await this.request(`/classes/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteClass(id);
+    return res;
+  }
+
+  // =========================================================================
+  // 5. FEE ROSTERS & INVOICE COLLECTIONS
+  // =========================================================================
+  async getFees(params = {}) {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const res = await this.request(`/fees?${query}`);
+      if (res && res.data) {
+        const raw = Array.isArray(res.data) ? res.data : (res.data.items || res.data);
+        if (Array.isArray(raw)) {
+          return raw.map((f) => ({
+            ...f,
+            id: f.id || f._id,
+            feeId: f.id || f._id,
+            studentId: f.student?._id || f.studentId || f.student,
+            studentName: f.student?.fullName || f.studentName || 'Student',
+            admissionNo: f.student?.admissionNumber || f.admissionNo || '',
+            grade: f.student?.class ? `${f.student.class.name || 'Class'}-${f.student.class.section || 'A'}` : (f.grade || 'Primary'),
+            term: f.term || 'Quarterly Tuition',
+            amount: f.amount || 3200,
+            paidAmount: f.paidAmount || 0,
+            pendingAmount: Math.max(0, (f.amount || 3200) - (f.paidAmount || 0)),
+            status: f.status === 'paid' ? 'Paid' : (f.status === 'partially_paid' ? 'Partially Paid' : 'Due'),
+            paymentMode: f.paymentMethod || 'Cash / Office Desk',
+            receiptNo: f.receiptNumber || null,
+            receiptNumber: f.receiptNumber || null,
+            date: f.paymentDate ? new Date(f.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+          }));
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return DataService.getFees();
+  }
+
+  async getPaymentGatewayStatus() {
+    try {
+      const res = await this.request('/fees/gateway-status');
+      return res?.data || { onlinePaymentsEnabled: false };
+    } catch {
+      return { onlinePaymentsEnabled: false };
+    }
+  }
+
+  async createFee(feeData) {
+    const res = await this.request('/fees', {
+      method: 'POST',
+      body: JSON.stringify(feeData),
+    });
+    return res?.data || res;
+  }
+
+  async recordFeePayment(feeIdOrData, paymentDetails = {}) {
+    let feeId = typeof feeIdOrData === 'string' ? feeIdOrData : feeIdOrData?.feeId || feeIdOrData?.id;
+    let payload = typeof feeIdOrData === 'object' ? { ...feeIdOrData, ...paymentDetails } : paymentDetails;
+
+    // Call /fees/:id/payment or fallback to /fees/pay
+    if (feeId) {
+      const res = await this.request(`/fees/${feeId}/payment`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      DataService.recordFeePayment(payload);
+      return res?.data || res;
+    } else {
+      const res = await this.request('/fees/pay', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      DataService.recordFeePayment(payload);
+      return res?.data || res;
+    }
+  }
+
+  // =========================================================================
+  // 6. ATTENDANCE DESK & CLASS TRACKING
+  // =========================================================================
+  async markClassAttendance(payload) {
+    const res = await this.request('/attendance', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res?.data || res;
+  }
+
+  async getClassAttendance(classId, date) {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    const res = await this.request(`/attendance/class/${classId}${query}`);
+    return res?.data || res;
+  }
+
+  async getClassAttendanceHistory(classId, limit = 30) {
+    const res = await this.request(`/attendance/class/${classId}/history?limit=${limit}`);
+    return res?.data || res;
+  }
+
+  async getStudentAttendance(studentId, params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const res = await this.request(`/attendance/student/${studentId}?${query}`);
+    return res?.data || res;
+  }
+
+  // =========================================================================
+  // 6b. TIMETABLE & SCHOOL SCHEDULE
+  // =========================================================================
+  async getTimetable(classId, day) {
+    const query = day && day !== 'All' ? `?day=${encodeURIComponent(day)}` : '';
+    const res = await this.request(`/timetable/class/${classId}${query}`);
+    return res?.data || res;
+  }
+
+  async getTeacherTimetable(day) {
+    const query = day && day !== 'All' ? `?day=${encodeURIComponent(day)}` : '';
+    const res = await this.request(`/timetable/teacher${query}`);
+    return res?.data || res;
+  }
+
+  async saveTimetable(classId, timetableData) {
+    const res = await this.request(`/timetable/class/${classId}`, {
+      method: 'POST',
+      body: JSON.stringify(timetableData),
+    });
+    return res?.data || res;
+  }
+
+  async deleteTimetable(classId, day) {
+    const query = day ? `?day=${encodeURIComponent(day)}` : '';
+    const res = await this.request(`/timetable/class/${classId}${query}`, {
+      method: 'DELETE',
+    });
+    return res?.data || res;
+  }
+
+  // =========================================================================
+  // 6c. HOMEWORK & ASSIGNMENTS
+  // =========================================================================
+  async getHomework(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const url = query ? `/homework?${query}` : '/homework';
+    const res = await this.request(url);
+    return res?.data || res;
+  }
+
+  async createHomework(homeworkData) {
+    const res = await this.request('/homework', {
+      method: 'POST',
+      body: JSON.stringify(homeworkData),
+    });
+    return res?.data || res;
+  }
+
+  async updateHomework(id, homeworkData) {
+    const res = await this.request(`/homework/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(homeworkData),
+    });
+    return res?.data || res;
+  }
+
+  async deleteHomework(id) {
+    const res = await this.request(`/homework/${id}`, {
+      method: 'DELETE',
+    });
+    return res?.data || res;
+  }
+
+  async submitHomework(id, submissionData) {
+    const res = await this.request(`/homework/${id}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(submissionData),
+    });
+    return res?.data || res;
+  }
+
+  async getHomeworkSubmissions(id) {
+    const res = await this.request(`/homework/${id}/submissions`);
+    return res?.data || res;
+  }
+
+  // =========================================================================
+  // 7. FEE STRUCTURE (PUBLIC & ADMIN)
+  // =========================================================================
   async getPublicFeeStructure(sessionOrParams = '2026-27') {
     const raw =
       typeof sessionOrParams === 'object' && sessionOrParams !== null
@@ -460,65 +827,52 @@ class ApiClient {
   }
 
   async createFeeStructure(data) {
-    try {
-      const res = await this.request('/fee-structure', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      if (res && res.data) {
-        DataService.saveFeeStructure(res.data);
-        return res.data;
-      }
-    } catch {
-      // Offline fallback
+    const res = await this.request('/fee-structure', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (res && res.data) {
+      DataService.saveFeeStructure(res.data);
+      return res.data;
     }
-    return DataService.saveFeeStructure(data);
+    return res;
   }
 
   async updateFeeStructure(id, data) {
-    try {
-      const res = await this.request(`/fee-structure/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-      if (res && res.data) {
-        DataService.saveFeeStructure(res.data);
-        return res.data;
-      }
-    } catch {
-      // Offline fallback
+    const res = await this.request(`/fee-structure/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    if (res && res.data) {
+      DataService.saveFeeStructure(res.data);
+      return res.data;
     }
-    return DataService.saveFeeStructure({ ...data, id });
+    return res;
   }
 
   async deleteFeeStructure(id) {
-    try {
-      await this.request(`/fee-structure/${id}`, {
-        method: 'DELETE',
-      });
-    } catch {
-      // Offline fallback
-    }
-    return DataService.deleteFeeStructure(id);
+    const res = await this.request(`/fee-structure/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteFeeStructure(id);
+    return res;
   }
 
   async togglePublishFeeStructure(id, isPublished) {
-    try {
-      const res = await this.request(`/fee-structure/${id}/publish`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isPublished }),
-      });
-      if (res && res.data) {
-        DataService.togglePublishFeeStructure(id, isPublished);
-        return res.data;
-      }
-    } catch {
-      // Offline fallback
+    const res = await this.request(`/fee-structure/${id}/publish`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isPublished }),
+    });
+    if (res && res.data) {
+      DataService.togglePublishFeeStructure(id, isPublished);
+      return res.data;
     }
-    return DataService.togglePublishFeeStructure(id, isPublished);
+    return res;
   }
 
-  // --- COURSE SPECIFICATIONS (PUBLIC & ADMIN) ---
+  // =========================================================================
+  // 8. COURSE SPECIFICATIONS (PUBLIC & ADMIN)
+  // =========================================================================
   async getPublicCourses(sessionOrParams = '2026-27') {
     const raw =
       typeof sessionOrParams === 'object' && sessionOrParams !== null
@@ -568,62 +922,47 @@ class ApiClient {
   }
 
   async createCourse(data) {
-    try {
-      const res = await this.request('/courses', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      if (res && res.data) {
-        DataService.saveCourse(res.data);
-        return res.data;
-      }
-    } catch {
-      // Offline fallback
+    const res = await this.request('/courses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (res && res.data) {
+      DataService.saveCourse(res.data);
+      return res.data;
     }
-    return DataService.saveCourse(data);
+    return res;
   }
 
   async updateCourse(id, data) {
-    try {
-      const res = await this.request(`/courses/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-      if (res && res.data) {
-        DataService.saveCourse(res.data);
-        return res.data;
-      }
-    } catch {
-      // Offline fallback
+    const res = await this.request(`/courses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    if (res && res.data) {
+      DataService.saveCourse(res.data);
+      return res.data;
     }
-    return DataService.saveCourse({ ...data, id });
+    return res;
   }
 
   async deleteCourse(id) {
-    try {
-      await this.request(`/courses/${id}`, {
-        method: 'DELETE',
-      });
-    } catch {
-      // Offline fallback
-    }
-    return DataService.deleteCourse(id);
+    const res = await this.request(`/courses/${id}`, {
+      method: 'DELETE',
+    });
+    DataService.deleteCourse(id);
+    return res;
   }
 
   async togglePublishCourse(id, isPublished) {
-    try {
-      const res = await this.request(`/courses/${id}/publish`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isPublished }),
-      });
-      if (res && res.data) {
-        DataService.togglePublishCourse(id, isPublished);
-        return res.data;
-      }
-    } catch {
-      // Offline fallback
+    const res = await this.request(`/courses/${id}/publish`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isPublished }),
+    });
+    if (res && res.data) {
+      DataService.togglePublishCourse(id, isPublished);
+      return res.data;
     }
-    return DataService.togglePublishCourse(id, isPublished);
+    return res;
   }
 }
 

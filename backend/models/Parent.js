@@ -50,8 +50,18 @@ const parentSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      unique: true,
       sparse: true,
       index: true,
+    },
+    linkingCode: {
+      type: String,
+      trim: true,
+      select: false,
+    },
+    linkingCodeExpires: {
+      type: Date,
+      select: false,
     },
     address: {
       street: { type: String, trim: true },

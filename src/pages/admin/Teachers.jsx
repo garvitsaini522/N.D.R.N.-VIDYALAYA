@@ -13,8 +13,11 @@ import {
   Search,
   Filter,
   Shield,
-  Briefcase
+  Briefcase,
+  AlertCircle,
+  X
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { DataService } from '../../services/dataService';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -51,6 +54,9 @@ const INITIAL_TEACHER_FORM = {
 
 export default function AdminTeachers() {
   const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -65,8 +71,16 @@ export default function AdminTeachers() {
   const [teacherToDelete, setTeacherToDelete] = useState(null);
   const [form, setForm] = useState(INITIAL_TEACHER_FORM);
 
-  const loadData = () => {
-    setTeachers(DataService.getTeachers());
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getTeachers();
+      setTeachers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to load faculty records from database.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -78,9 +92,9 @@ export default function AdminTeachers() {
     const q = searchQuery.toLowerCase().trim();
     const matchSearch =
       !q ||
-      t.name.toLowerCase().includes(q) ||
-      t.designation.toLowerCase().includes(q) ||
-      t.email.toLowerCase().includes(q) ||
+      (t.name && t.name.toLowerCase().includes(q)) ||
+      (t.designation && t.designation.toLowerCase().includes(q)) ||
+      (t.email && t.email.toLowerCase().includes(q)) ||
       (t.primarySubjects && t.primarySubjects.some((s) => s.toLowerCase().includes(q))) ||
       (t.assignedClasses && t.assignedClasses.some((c) => c.toLowerCase().includes(q)));
 
@@ -117,18 +131,28 @@ export default function AdminTeachers() {
     setModalOpen(true);
   };
 
-  const handleSaveTeacher = (e) => {
+  const handleSaveTeacher = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.phone.trim()) return;
 
-    if (editingTeacher) {
-      DataService.updateTeacher(editingTeacher.id, form);
-    } else {
-      DataService.addTeacher(form);
-    }
+    setIsSaving(true);
+    try {
+      if (editingTeacher) {
+        await api.updateTeacher(editingTeacher.id || editingTeacher._id, form);
+        setNotification({ type: 'success', message: `Teacher '${form.name}' updated successfully in MongoDB.` });
+      } else {
+        await api.createTeacher(form);
+        setNotification({ type: 'success', message: `Teacher '${form.name}' registered successfully.` });
+      }
 
-    loadData();
-    setModalOpen(false);
+      await loadData();
+      setModalOpen(false);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Database error: Could not save teacher profile.' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setNotification(null), 4000);
+    }
   };
 
   const handleToggleClassAssignment = (clsName) => {
@@ -149,18 +173,32 @@ export default function AdminTeachers() {
     }
   };
 
-  const handleToggleStatus = (teacher) => {
+  const handleToggleStatus = async (teacher) => {
     const nextStatus = teacher.status === 'Active' ? 'Inactive' : 'Active';
-    DataService.updateTeacher(teacher.id, { status: nextStatus });
-    loadData();
+    try {
+      await api.updateTeacher(teacher.id || teacher._id, { status: nextStatus });
+      await loadData();
+      setNotification({ type: 'success', message: `Status for '${teacher.name}' set to ${nextStatus}.` });
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Failed to update teacher status.' });
+    } finally {
+      setTimeout(() => setNotification(null), 3000);
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (teacherToDelete) {
-      DataService.deleteTeacher(teacherToDelete.id);
-      loadData();
-      setDeleteConfirmOpen(false);
-      setTeacherToDelete(null);
+      try {
+        await api.deleteTeacher(teacherToDelete.id || teacherToDelete._id);
+        setNotification({ type: 'success', message: 'Teacher record removed successfully from database.' });
+        await loadData();
+      } catch (err) {
+        setNotification({ type: 'error', message: err.message || 'Failed to delete teacher record.' });
+      } finally {
+        setDeleteConfirmOpen(false);
+        setTeacherToDelete(null);
+        setTimeout(() => setNotification(null), 4000);
+      }
     }
   };
 
@@ -190,6 +228,32 @@ export default function AdminTeachers() {
           Add Faculty Member
         </Button>
       </div>
+
+      {notification && (
+        <div
+          className={`p-3.5 rounded-xl border text-xs sm:text-sm flex items-center justify-between shadow-2xs animate-in fade-in ${
+            notification.type === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            className="text-slate-400 hover:text-slate-600 ml-3"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Search and Filters */}
       <Card className="p-4 bg-white border border-slate-200">

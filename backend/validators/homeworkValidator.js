@@ -4,8 +4,7 @@ export const createHomeworkRules = [
   body('classId')
     .notEmpty()
     .withMessage('Class ID is required')
-    .isMongoId()
-    .withMessage('Invalid class ID'),
+    .trim(),
   body('subject')
     .trim()
     .notEmpty()

@@ -1,35 +1,108 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CalendarDays,
   Clock,
   Printer,
   Sparkles,
   Building,
-  CheckCircle2,
-  Calendar,
+  AlertCircle,
+  X,
   Filter,
   Check
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-const WEEKLY_SCHEDULE = {};
+/**
+ * Returns current day of the week in Indian Standard Time (Asia/Kolkata)
+ */
+function getInitialKolkataDay() {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+    });
+    const day = formatter.format(new Date());
+    return day === 'Sunday' ? 'Monday' : day;
+  } catch {
+    return 'Monday';
+  }
+}
 
 export default function TeacherTimetable() {
-  const [selectedDay, setSelectedDay] = useState(() => {
-    const dayIndex = new Date().getDay(); // 0 is Sunday, 1 is Monday...
-    return dayIndex === 0 ? 'Monday' : DAYS[dayIndex - 1] || 'Friday';
-  });
-
+  const { user } = useAuth();
+  const [selectedDay, setSelectedDay] = useState(getInitialKolkataDay);
   const [selectedGradeFilter, setSelectedGradeFilter] = useState('All');
+  const [periods, setPeriods] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  const daySchedule = WEEKLY_SCHEDULE[selectedDay] || [];
+  // 1. Fetch assigned classes for the filter dropdown
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAssignedClasses() {
+      try {
+        const classList = await api.getClasses();
+        if (!isMounted) return;
+        const all = Array.isArray(classList) ? classList : [];
+        if (user?.role === 'teacher' && user?.wing !== 'Administration' && Array.isArray(user?.assignedClasses) && user.assignedClasses.length > 0) {
+          const assignedIds = user.assignedClasses.map((c) => c.toString());
+          const filtered = all.filter((c) => assignedIds.includes((c._id || c.id)?.toString()));
+          setClasses(filtered.length > 0 ? filtered : all);
+        } else {
+          setClasses(all);
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+    loadAssignedClasses();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
-  const filteredPeriods = daySchedule.filter((p) => {
+  // 2. Fetch real timetable schedule from MongoDB for the selected day in Asia/Kolkata
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchTeachingRoutine() {
+      setLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const routine = await api.getTeacherTimetable(selectedDay);
+        if (isMounted) {
+          setPeriods(Array.isArray(routine) ? routine : []);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setErrorMessage(err.message || 'Failed to load official timetable records from server.');
+          setPeriods([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchTeachingRoutine();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDay]);
+
+  const filteredPeriods = periods.filter((p) => {
     if (selectedGradeFilter === 'All') return true;
-    return p.grade && p.grade.includes(selectedGradeFilter);
+    return (
+      (p.grade && p.grade.toLowerCase().includes(selectedGradeFilter.toLowerCase())) ||
+      (p.classId && p.classId.toString() === selectedGradeFilter.toString())
+    );
   });
 
   const handlePrint = () => {
@@ -42,7 +115,7 @@ export default function TeacherTimetable() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-bold text-school-700 uppercase tracking-widest block mb-1">
-            CLASSROOM TIMETABLE • FACULTY SCHEDULE
+            CLASSROOM TIMETABLE • FACULTY SCHEDULE (IST • ASIA/KOLKATA)
           </span>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">
             Teaching Timetable & Periods
@@ -66,7 +139,24 @@ export default function TeacherTimetable() {
         </div>
       </div>
 
-      {/* Day Selector Tabs */}
+      {/* Error Alert Banner */}
+      {errorMessage && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center justify-between animate-in fade-in print:hidden">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-rose-500 hover:text-rose-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Day Selector Tabs (Asia/Kolkata timezone scheduled) */}
       <div className="bg-white rounded-2xl p-2 border border-slate-200/90 shadow-2xs flex flex-wrap items-center gap-1.5 print:hidden">
         {DAYS.map((day) => (
           <button
@@ -93,7 +183,7 @@ export default function TeacherTimetable() {
           <div>
             <h3 className="text-sm font-black text-slate-900">{selectedDay} Teaching Roster</h3>
             <span className="text-xs text-slate-500">
-              {filteredPeriods.length} instructional periods scheduled • Assembly 08:00 AM • Lunch Recess 11:30 AM
+              {filteredPeriods.length} instructional periods scheduled • Assembly 08:00 AM • Lunch Recess 11:30 AM (IST)
             </span>
           </div>
         </div>
@@ -106,21 +196,35 @@ export default function TeacherTimetable() {
             className="text-xs px-3 py-1.5 rounded-xl border border-slate-300 bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-school-600"
           >
             <option value="All">All Assigned Classes</option>
-            <option value="Class 5">Class 5</option>
-            <option value="Class 4">Class 4</option>
+            {classes.map((c) => (
+              <option key={c._id || c.id} value={c.name}>
+                {c.name} - Section {c.section || 'A'}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
       {/* Schedule Periods Cards */}
       <div className="space-y-3">
-        {filteredPeriods.length === 0 ? (
+        {loading ? (
+          <Card className="p-12 text-center text-xs text-slate-400 animate-pulse">
+            Loading {selectedDay}'s routine from MongoDB timetable registry...
+          </Card>
+        ) : filteredPeriods.length === 0 ? (
           <Card className="p-12 text-center text-xs text-slate-400">
-            No periods published for {selectedDay}. The academic timetable will appear here once officially scheduled.
+            <CalendarDays className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+            <p className="font-semibold text-slate-700 text-sm">No periods configured for {selectedDay}.</p>
+            <p className="text-slate-500 mt-1 max-w-md mx-auto">
+              Period allocations will appear here once officially scheduled in the academic timetable registry.
+            </p>
           </Card>
         ) : (
           filteredPeriods.map((p) => (
-            <Card key={p.period} className="p-5 hover:border-school-300 transition-all shadow-soft-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <Card
+              key={p.id || `${p.period}-${p.time}`}
+              className="p-5 hover:border-school-300 transition-all shadow-soft-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 text-slate-800 font-black text-sm flex flex-col items-center justify-center shrink-0">
                   <span className="text-[10px] uppercase font-bold text-slate-400">Period</span>
@@ -134,11 +238,11 @@ export default function TeacherTimetable() {
                       {p.grade}
                     </span>
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600 font-mono">
-                      {p.room}
+                      {p.room || 'Room 101'}
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-500">{p.notes}</p>
+                  {p.notes && <p className="text-xs text-slate-500">{p.notes}</p>}
                 </div>
               </div>
 
@@ -157,13 +261,12 @@ export default function TeacherTimetable() {
       <Card className="p-5 bg-slate-50 border border-slate-200/90 text-xs text-slate-600 space-y-2">
         <div className="font-bold text-slate-900 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-school-700" />
-          <span>General School Routine & bell timing guidelines</span>
+          <span>General School Routine & Bell Timings (Indian Standard Time • Asia/Kolkata)</span>
         </div>
         <p className="leading-relaxed">
-          Morning Prayer & Physical Warm-up begins at 08:00 AM sharp in the school central quadrangle. Teachers on morning gate duty are requested to be present by 07:45 AM. Recess interval is observed between Period 3 and Period 4 (11:30 AM to 12:00 PM).
+          Morning Assembly & Physical Warm-up begins at 08:00 AM sharp in the school central quadrangle. Faculty members on gate duty are requested to be present by 07:45 AM. Mid-day recess is observed between Period 3 and Period 4 (11:30 AM to 12:00 PM).
         </p>
       </Card>
     </div>
   );
 }
-

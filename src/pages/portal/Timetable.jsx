@@ -12,38 +12,47 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { usePortal } from '../../context/PortalContext';
-import { portalApi } from '../../services/portalApi';
+import { api } from '../../services/api';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import LoadingState from '../../components/common/LoadingState';
 import ErrorState from '../../components/common/ErrorState';
-import EmptyState from '../../components/common/EmptyState';
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function getInitialKolkataDay() {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+    });
+    const day = formatter.format(new Date());
+    return day === 'Sunday' ? 'Monday' : day;
+  } catch {
+    return 'Monday';
+  }
+}
 
 export default function Timetable() {
   const { user } = useAuth();
 
-  // Class Timetable is not accessible in Parent Portal directly
-  if (user?.role === 'parent') {
-    return <Navigate to="/parent/dashboard" replace />;
-  }
+  // Teachers are guided to their faculty timetable desk
   if (user?.role === 'teacher') {
     return <Navigate to="/teacher/timetable" replace />;
   }
+
   const {
     currentStudent,
     availableWards,
     activeWardId,
     switchWard,
     hasMultipleChildren,
-    isParent,
   } = usePortal();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [timetableData, setTimetableData] = useState(null);
-  const [selectedDay, setSelectedDay] = useState('Friday');
-
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const [periods, setPeriods] = useState([]);
+  const [selectedDay, setSelectedDay] = useState(getInitialKolkataDay);
 
   useEffect(() => {
     let isMounted = true;
@@ -54,16 +63,23 @@ export default function Timetable() {
       setError(null);
 
       try {
-        const grade = currentStudent.grade || 'Class 5-A';
-        const res = await portalApi.getTimetable(grade);
+        const targetClass = currentStudent.classId || currentStudent.grade || 'Class 5';
+        const res = await api.getTimetable(targetClass, selectedDay);
 
         if (isMounted) {
-          setTimetableData(res.data);
+          let loadedPeriods = [];
+          if (Array.isArray(res)) {
+            const dayMatch = res.find((t) => t.dayOfWeek === selectedDay) || res[0];
+            loadedPeriods = dayMatch?.periods || [];
+          } else if (res && res.periods) {
+            loadedPeriods = res.periods;
+          }
+          setPeriods(loadedPeriods);
           setLoading(false);
         }
       } catch (err) {
         if (isMounted) {
-          setError('Failed to load class timetable.');
+          setError(err.message || 'Failed to load class timetable from database.');
           setLoading(false);
         }
       }
@@ -74,7 +90,7 @@ export default function Timetable() {
     return () => {
       isMounted = false;
     };
-  }, [currentStudent, activeWardId]);
+  }, [currentStudent, activeWardId, selectedDay]);
 
   if (loading) {
     return <LoadingState message="Loading class schedule from timetable desk..." />;
@@ -84,21 +100,19 @@ export default function Timetable() {
     return <ErrorState message={error} onRetry={() => window.location.reload()} />;
   }
 
-  const schedule = timetableData?.schedule || [];
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-bold text-school-700 uppercase tracking-widest block mb-1">
-            CLASSROOM SCHEDULE • DAILY PERIODS
+            CLASSROOM SCHEDULE • DAILY PERIODS (IST • ASIA/KOLKATA)
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Class Timetable: {currentStudent?.grade}
+            Class Timetable: {currentStudent?.grade || 'Primary Cohort'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Primary Section • School hours: 08:00 AM - 02:00 PM • Room: {timetableData?.room || 'Room 108'} • Daulatyarpur Campus.
+            Primary Section • School hours: 08:00 AM - 02:00 PM • Daulatyarpur Campus.
           </p>
         </div>
 
@@ -141,7 +155,7 @@ export default function Timetable() {
 
       {/* Days Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {days.map((d) => (
+        {DAYS.map((d) => (
           <button
             key={d}
             type="button"
@@ -163,11 +177,11 @@ export default function Timetable() {
           <div>
             <h3 className="text-base font-bold text-slate-900">{selectedDay} Academic Routine</h3>
             <p className="text-xs text-slate-500">
-              Morning Assembly begins at 08:00 AM • Bell rings at 08:30 AM
+              Morning Assembly begins at 08:00 AM • Bell rings at 08:30 AM (IST)
             </p>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-            6 Instructional Periods
+            {periods.length} Instructional Periods
           </span>
         </div>
 
@@ -187,61 +201,53 @@ export default function Timetable() {
             <span className="text-xs font-mono font-semibold text-slate-500">08:00 - 08:30 AM</span>
           </div>
 
-          {/* Periods 1 to 3 */}
-          {schedule.slice(0, 3).map((item) => (
-            <div
-              key={item.period}
-              className="p-3.5 rounded-2xl border border-slate-200 hover:border-school-200 hover:bg-slate-50/70 transition-all flex items-center justify-between gap-3"
-            >
-              <div className="flex items-center gap-3.5">
-                <span className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
-                  P{item.period}
-                </span>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">{item.subject}</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Educator: {item.teacher} • <span className="font-semibold text-slate-700">{item.room}</span>
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-mono font-bold text-slate-700">{item.time}</span>
+          {periods.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              <CalendarDays className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+              <p className="font-semibold text-slate-700 text-sm">No periods configured for {selectedDay}.</p>
+              <p className="text-slate-500 mt-1 max-w-md mx-auto">
+                The academic coordinator will publish the class routine here once officially scheduled.
+              </p>
             </div>
-          ))}
+          ) : (
+            periods.map((item, idx) => (
+              <React.Fragment key={item.periodNumber || idx}>
+                {idx === 3 && (
+                  /* Recess Break */
+                  <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-lg bg-amber-200 text-amber-900 font-bold flex items-center justify-center shrink-0">
+                        Break
+                      </span>
+                      <div>
+                        <span className="font-bold text-amber-950">Nutritious Mid-Day Lunch & Refreshment Break</span>
+                        <p className="text-[11px] text-amber-800">Clean drinking water & supervised dining in classrooms</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-amber-900">11:30 - 12:00 PM</span>
+                  </div>
+                )}
 
-          {/* Recess Break */}
-          <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-amber-200 text-amber-900 font-bold flex items-center justify-center shrink-0">
-                Break
-              </span>
-              <div>
-                <span className="font-bold text-amber-950">Nutritious Mid-Day Lunch & Refreshment Break</span>
-                <p className="text-[11px] text-amber-800">Clean drinking water & supervised dining in classrooms</p>
-              </div>
-            </div>
-            <span className="text-xs font-mono font-bold text-amber-900">10:45 - 11:15 AM</span>
-          </div>
-
-          {/* Periods 4 to 6 */}
-          {schedule.slice(3).map((item) => (
-            <div
-              key={item.period}
-              className="p-3.5 rounded-2xl border border-slate-200 hover:border-school-200 hover:bg-slate-50/70 transition-all flex items-center justify-between gap-3"
-            >
-              <div className="flex items-center gap-3.5">
-                <span className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
-                  P{item.period}
-                </span>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">{item.subject}</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Educator: {item.teacher} • <span className="font-semibold text-slate-700">{item.room}</span>
-                  </p>
+                <div className="p-3.5 rounded-2xl border border-slate-200 hover:border-school-200 hover:bg-slate-50/70 transition-all flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <span className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
+                      P{item.periodNumber}
+                    </span>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{item.subject}</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Educator: {item.teacher?.fullName || item.teacher || 'Assigned Faculty'} •{' '}
+                        <span className="font-semibold text-slate-700">{item.room || 'Room 108'}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-slate-700">
+                    {item.startTime} - {item.endTime}
+                  </span>
                 </div>
-              </div>
-              <span className="text-xs font-mono font-bold text-slate-700">{item.time}</span>
-            </div>
-          ))}
+              </React.Fragment>
+            ))
+          )}
 
           {/* Dispersal */}
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">

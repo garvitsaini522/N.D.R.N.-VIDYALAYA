@@ -74,6 +74,24 @@ const feeSchema = new mongoose.Schema(
     transactionId: {
       type: String,
       trim: true,
+      sparse: true,
+      index: true,
+    },
+    gatewayOrderId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
+    gatewayPaymentId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
+    gatewaySignature: {
+      type: String,
+      trim: true,
     },
     receiptNumber: {
       type: String,

@@ -121,33 +121,45 @@ export default function AdminNoticesManager() {
       content: form.content.trim() || form.summary.trim(),
     };
 
-    if (editingNotice) {
-      const targetId = editingNotice.id || editingNotice._id;
-      await api.updateNotice(targetId, payload);
-    } else {
-      await api.createNotice(payload);
-    }
+    try {
+      if (editingNotice) {
+        const targetId = editingNotice.id || editingNotice._id;
+        await api.updateNotice(targetId, payload);
+      } else {
+        await api.createNotice(payload);
+      }
 
-    await loadNotices();
-    setModalOpen(false);
-    setPublishedAlert(true);
-    setTimeout(() => setPublishedAlert(false), 3500);
+      await loadNotices();
+      setModalOpen(false);
+      setPublishedAlert(true);
+      setTimeout(() => setPublishedAlert(false), 3500);
+    } catch (err) {
+      alert(err.message || 'Failed to save circular notice in database.');
+    }
   };
 
   const handleTogglePin = async (notice) => {
-    const targetId = notice.id || notice._id;
-    const isCurrentlyPinned = notice.pinned !== undefined ? Boolean(notice.pinned) : Boolean(notice.isPinned);
-    await api.updateNotice(targetId, { pinned: !isCurrentlyPinned, isPinned: !isCurrentlyPinned });
-    await loadNotices();
+    try {
+      const targetId = notice.id || notice._id;
+      const isCurrentlyPinned = notice.pinned !== undefined ? Boolean(notice.pinned) : Boolean(notice.isPinned);
+      await api.updateNotice(targetId, { pinned: !isCurrentlyPinned, isPinned: !isCurrentlyPinned });
+      await loadNotices();
+    } catch (err) {
+      alert(err.message || 'Failed to update notice status in database.');
+    }
   };
 
   const handleConfirmDelete = async () => {
     if (noticeToDelete) {
-      const targetId = noticeToDelete.id || noticeToDelete._id;
-      await api.deleteNotice(targetId);
-      await loadNotices();
-      setDeleteConfirmOpen(false);
-      setNoticeToDelete(null);
+      try {
+        const targetId = noticeToDelete.id || noticeToDelete._id;
+        await api.deleteNotice(targetId);
+        await loadNotices();
+        setDeleteConfirmOpen(false);
+        setNoticeToDelete(null);
+      } catch (err) {
+        alert(err.message || 'Failed to delete notice from database.');
+      }
     }
   };
 
